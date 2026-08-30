@@ -1,6 +1,6 @@
 [workspace]
 name = "still-wakes-the-deep-headtracking"
-version = "0.0.0"
+version = "0.1.0"
 description = "Head tracking mod for Still Wakes the Deep (UE5)"
 license = "MIT"
 license-file = "LICENSE"
