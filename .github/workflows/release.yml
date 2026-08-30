@@ -1,23 +1,27 @@
 name: release
+run-name: "Release ${{ github.ref_name }}"
 
 on:
   push:
     tags:
       - 'v*.*.*'
 
-permissions:
-  contents: write
-
 jobs:
   release:
+    name: Create Release
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: microsoft/setup-msbuild@v3
+      # C++ toolchain for the pixi `build` task's cmake/msbuild invocation.
+      - name: Setup Visual Studio environment
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
 
       - name: Require release announcement prerequisites
         shell: pwsh
@@ -73,7 +77,7 @@ jobs:
         run: |
           # Same pattern package-release.ps1 stamps the manifest from, so the tag,
           # the built ZIP names and the manifest version cannot disagree.
-          $match = Select-String -Path CMakeLists.txt -Pattern 'VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)' | Select-Object -First 1
+          $match = Select-String -Path CMakeLists.txt -Pattern 'project\(\S+\s+VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)' | Select-Object -First 1
           if (-not $match) {
             Write-Host '::error::Could not read a version from CMakeLists.txt'
             exit 1
@@ -85,16 +89,35 @@ jobs:
           }
           Write-Host "Version $projectVersion matches the tag."
 
-      - uses: prefix-dev/setup-pixi@v0.8.1
+      # See build.yml for the full note on run-install: false - this workspace
+      # has no conda dependencies, and setup-pixi's install flow ends in
+      # `pixi list`, which exits 1 on an empty environment.
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@5185adfbffb4bd703da3010310260805d89ebb11 # v0.9.6
+        with:
+          run-install: false
 
+      # Behaviour locks for the camera boundary and the caller gate, before
+      # anything is cut. Needs no game installed.
+      - name: Run tests
+        shell: pwsh
+        run: pixi run test
+
+      # Same command as build.yml and developers run - no build logic in YAML.
       - name: Build and package
         shell: pwsh
+        run: pixi run package
+
+      # A manifest naming a file the ZIP does not contain makes the launcher
+      # copy the mod into folders nothing loads while reporting "Installed".
+      # That has shipped before; it fails the release here instead.
+      - name: Validate launcher manifest
+        shell: pwsh
         run: |
-          pixi run package
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host '::error::pixi run package failed'
-            exit 1
-          }
+          $zip = Get-ChildItem release -Filter '*-installer.zip' |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $zip) { Write-Host "::error::no installer ZIP to validate"; exit 1 }
+          node cameraunlock-core/scripts/validate-manifest.mjs $zip.FullName
 
       - name: Generate release notes
         shell: pwsh
