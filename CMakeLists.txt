@@ -96,6 +96,8 @@ set_target_properties(StillWakesTheDeepHeadTracking PROPERTIES
 # `pixi run test` runs anywhere the mod builds, with no game installed.
 option(SWTD_BUILD_TESTS "Build the camera-boundary behaviour tests" ON)
 if(SWTD_BUILD_TESTS)
+    enable_testing()
+
     add_executable(swtd_boundary_tests
         tests/boundary_tests.cpp
         src/camera_boundary.cpp
@@ -104,4 +106,18 @@ if(SWTD_BUILD_TESTS)
         src
         cameraunlock-core/cpp/include
     )
+    add_test(NAME swtd_boundary_tests COMMAND swtd_boundary_tests)
+
+    # config.cpp reads through core's IniReader and logs through core's file log,
+    # so this one links cameraunlock. Still no hooks and no game.
+    add_executable(swtd_config_tests
+        tests/config_tests.cpp
+        src/config.cpp
+    )
+    target_include_directories(swtd_config_tests PRIVATE
+        src
+        cameraunlock-core/cpp/include
+    )
+    target_link_libraries(swtd_config_tests PRIVATE cameraunlock)
+    add_test(NAME swtd_config_tests COMMAND swtd_config_tests)
 endif()

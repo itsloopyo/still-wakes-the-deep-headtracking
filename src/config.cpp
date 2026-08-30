@@ -142,7 +142,10 @@ void config_load(const std::string& exe_dir, Config& out) {
     out.position_sensitivity_z = ini.ReadFloat("Position", "SensitivityZ", out.position_sensitivity_z);
     out.limit_x            = ini.ReadFloat("Position", "LimitX",           out.limit_x);
     out.limit_y            = ini.ReadFloat("Position", "LimitY",           out.limit_y);
-    out.limit_y_down       = ini.ReadFloat("Position", "LimitYDown",       out.limit_y_down);
+    // Falls back to whatever LimitY resolved to, not to the struct default: a config
+    // that sets only LimitY would otherwise keep 0.20 m of downward travel while the
+    // upward budget moved, with nothing saying the key was half-effective.
+    out.limit_y_down       = ini.ReadFloat("Position", "LimitYDown",       out.limit_y);
     out.limit_z            = ini.ReadFloat("Position", "LimitZ",           out.limit_z);
     out.limit_z_back       = ini.ReadFloat("Position", "LimitZBack",       out.limit_z_back);
     // No position smoothing key: position uses the same LocalSmoothing /
