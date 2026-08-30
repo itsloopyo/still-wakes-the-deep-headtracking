@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "mod_info": {
+    "name": "StillWakesTheDeepHeadTracking",
+    "version": "0.0.0",
+    "game_id": "still-wakes-the-deep"
+  },
+  "strategy": "AsiLoader",
+  "delivery_mode": "manifest",
+
+  "files": [
+    { "source": "vendor/ultimate-asi-loader/dinput8.dll", "target": "Habitat/Binaries/Win64/winmm.dll" },
+    { "source": "plugins/StillWakesTheDeepHeadTracking.asi", "target": "Habitat/Binaries/Win64/StillWakesTheDeepHeadTracking.asi" }
+  ],
+
+  "runtime_requirements": [],
+  "dependencies": []
+}

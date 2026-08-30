@@ -1,0 +1,48 @@
+# Agent tooling and session scratch
+.claude/
+.lab/
+.serena/
+AGENTS.md
+CLAUDE.md
+mcp.json
+.mcp.json
+skills/
+.skills/
+NEXUS_MODS.md
+
+# Reverse-engineering and session output. Analysis runs against a local copy
+# of the game; nothing derived from it beyond plain numbers is ever committed.
+scratch/
+*.log
+*.ghidra
+*.gpr
+*.rep/
+*.dmp
+*.exe
+
+# Build and package output
+.pixi/
+build/
+bin/
+obj/
+libs/
+release/
+dist/
+CMakeCache.txt
+CMakeFiles/
+extern/minhook/
+
+# IDE and toolchain
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.aps
+*.ilk
+*.pdb
+
+# Local runtime state and secrets
+.headtracking-state.json
+.env
+.env.*

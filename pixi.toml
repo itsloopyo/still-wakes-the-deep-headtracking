@@ -1,0 +1,63 @@
+[workspace]
+name = "still-wakes-the-deep-headtracking"
+version = "0.0.0"
+description = "Head tracking mod for Still Wakes the Deep (UE5)"
+license = "MIT"
+license-file = "LICENSE"
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[tasks]
+sync = "git submodule update --remote cameraunlock-core"
+
+# No -G: let CMake auto-detect the installed Visual Studio generator. Pinning
+# "Visual Studio 17 2022" broke on CI once the windows runner image moved to
+# VS 2026 (VS 17 absent); auto-detect picks whatever VS the machine has.
+setup = { cmd = """
+    powershell -Command "if (-not (Test-Path 'build')) { cmake -B build -A x64 } else { Write-Host 'Build directory exists, skipping setup' -ForegroundColor Yellow }"
+""" }
+
+build = { cmd = "cmake --build build --config Release", depends-on = ["setup"] }
+build-debug = { cmd = "cmake --build build --config Debug", depends-on = ["setup"] }
+
+# Behaviour locks for the camera boundary and the caller gate. No game needed.
+test = { cmd = "build/Release/swtd_boundary_tests.exe", depends-on = ["build"] }
+
+clean = { cmd = """
+    powershell -Command "if (Test-Path 'build') { Remove-Item 'build' -Recurse -Force }; Write-Host 'Build artifacts cleaned' -ForegroundColor Green"
+""" }
+
+clean-all = { cmd = """
+    powershell -Command "foreach ($d in @('build','release')) { if (Test-Path $d) { Remove-Item $d -Recurse -Force } }; Write-Host 'All build artifacts cleaned' -ForegroundColor Green"
+""" }
+
+# Bump vendored Ultimate ASI Loader copy. Manual, with a commit attached -
+# nothing depends on it; build/package/release consume whatever is committed
+# under vendor/.
+update-deps = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-deps.ps1" }
+
+# Package both release ZIPs (installer + nexus)
+package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build"] }
+
+# Full release workflow: stamp version, changelog, package, commit, tag, push.
+# Unattended - `pixi run release minor` is the authorization, there is no prompt.
+release = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1" }
+
+# Build + deploy to game directory (dev loop)
+deploy = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1", depends-on = ["build"] }
+
+# Strip the logo/cutscene videos and the slow streaming defaults out of the
+# local install so the test loop is short. fast-boot-restore puts them back.
+fast-boot = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fast-boot.ps1" }
+fast-boot-status = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fast-boot.ps1 -Action Status" }
+fast-boot-restore = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fast-boot.ps1 -Action Restore" }
+
+# Launch the game for a test run (-nosplash; see -Map / -Windowed / -ListMaps)
+launch = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/launch.ps1" }
+
+# Build + deploy into the detected game install (the dev-loop install).
+install = { depends-on = ["deploy"] }
+uninstall = "cmd /c scripts\\uninstall.cmd"
+
+[dependencies]
+# No pixi-managed deps - relies on system CMake + Visual Studio 2022.
