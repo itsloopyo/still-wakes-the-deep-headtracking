@@ -21,8 +21,8 @@ constexpr const char* kIniName = "HeadTracking.ini";
 // defaults in config.h. They differ on purpose: a malformed RemoteSmoothing must
 // not drop back to the LOCAL default, which would leave a phone on WiFi running
 // with no smoothing at all on raw network jitter.
-constexpr float kLocalSmoothingFallback = 0.0f;
-constexpr float kRemoteSmoothingFallback = 0.15f;
+constexpr float kLocalSmoothingFallback = static_cast<float>(cameraunlock::math::kDefaultLocalSmoothing);
+constexpr float kRemoteSmoothingFallback = static_cast<float>(cameraunlock::math::kDefaultRemoteSmoothing);
 
 // The torch multiplier's ceiling is the same 5.0 resident-evil-requiem uses -
 // past that the beam has left the screen on any believable head movement. The
