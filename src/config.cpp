@@ -211,7 +211,7 @@ void config_write_default_if_missing(const std::string& exe_dir) {
         "SensitivityZ=1.0\n"
         "LimitX=0.30\n"
         "LimitY=0.20\n"
-        "LimitYDown=0.20\n"
+        "LimitYDown=%.2f\n"
         "LimitZ=0.40\n"
         "LimitZBack=0.10\n\n"
         "[Torch]\n"
@@ -235,7 +235,8 @@ void config_write_default_if_missing(const std::string& exe_dir) {
         "; Ctrl+Shift+U / Ctrl+Shift+J cycle which GetPlayerViewPoint caller is\n"
         "; head-tracked. Only needed to re-confirm the render caller after a\n"
         "; game patch moves it.\n"
-        "InjectHotkeys=0\n");
+        "InjectHotkeys=0\n",
+        static_cast<double>(cameraunlock::PositionSettings{}.limit_y_down));
     std::fclose(f);
 }
 

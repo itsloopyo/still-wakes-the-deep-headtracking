@@ -16,6 +16,8 @@
 
 #include "config.h"
 
+#include "cameraunlock/data/position_settings.h"
+
 namespace {
 
 int g_failures = 0;
@@ -68,11 +70,31 @@ void AnExplicitLimitYDownStillWins() {
     CheckNear(cfg.limit_y_down, 0.05f, "an explicit LimitYDown overrides the mirrored value");
 }
 
+// The generated default INI must state core's actual limit_y_down default, not a
+// literal that can drift from it silently if core's default ever changes.
+void WrittenDefaultIniMatchesCoreLimitYDown() {
+    char temp[MAX_PATH] = {};
+    GetTempPathA(MAX_PATH, temp);
+    const std::string dir = std::string(temp) + "swtd_ht_config_written_default";
+    CreateDirectoryA(dir.c_str(), nullptr);
+    // config_write_default_if_missing is a no-op once the file exists, so a leftover
+    // from a previous run of this test would hide a regression here.
+    DeleteFileA((dir + "\\HeadTracking.ini").c_str());
+
+    swtd_ht::config_write_default_if_missing(dir);
+
+    swtd_ht::Config cfg;
+    swtd_ht::config_load(dir, cfg);
+    CheckNear(cfg.limit_y_down, cameraunlock::PositionSettings{}.limit_y_down,
+              "the written default INI's LimitYDown matches core's PositionSettings default");
+}
+
 }  // namespace
 
 int main() {
     LimitYReachesBothBoundsWhenLimitYDownIsAbsent();
     AnExplicitLimitYDownStillWins();
+    WrittenDefaultIniMatchesCoreLimitYDown();
 
     if (g_failures != 0) {
         std::printf("%d check(s) failed\n", g_failures);
