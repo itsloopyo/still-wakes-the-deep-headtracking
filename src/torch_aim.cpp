@@ -27,11 +27,10 @@
 // rotation, reads the clean value - the same per-caller gate the camera hook
 // uses on GetPlayerViewPoint.
 //
-// The multiplier scales the head pose the beam is given. It defaults to 1.5,
-// matching resident-evil-requiem and prey, so the beam leads the view: turn your
-// head and your eyes end up off the centre of the screen, so a beam aligned with
-// the view lands short of what you are actually looking at. 1.0 moves the beam
-// with the view instead.
+// The multiplier scales the head pose the beam is given. The default, the bound
+// and the reasoning are the fleet's - see cameraunlock/effects/head_follow_light.h
+// - so this beam leads the view by the same amount prey's and
+// resident-evil-requiem's do. 1.0 moves the beam with the view instead.
 
 #include "torch_aim.h"
 
@@ -45,6 +44,7 @@
 #include "camera_boundary.h"
 #include "logging.h"
 
+#include "cameraunlock/effects/head_follow_light.h"
 #include "cameraunlock/hooks/hook_manager.h"
 #include "cameraunlock/unreal/ue_math.h"
 #include "cameraunlock/unreal/ue_runtime.h"
@@ -64,7 +64,7 @@ using GetTargetRotation_t = FRotator*(__fastcall*)(void* self, FRotator* out);
 GetTargetRotation_t g_orig = nullptr;
 
 // Written once, before the hook is enabled.
-float g_multiplier = 1.5f;
+float g_multiplier = cameraunlock::effects::kDefaultLightMultiplier;
 
 std::atomic<bool>  g_active{false};
 std::atomic<float> g_yaw{0.0f};
@@ -86,10 +86,14 @@ FRotator* __fastcall GetTargetRotation_Hook(void* self, FRotator* out) {
     if (retRva != Offsets().kTorchArmTargetRotationRetRva)
         return result;
 
-    const double k = static_cast<double>(g_multiplier);
-    const double yaw   = g_yaw.load(std::memory_order_relaxed) * k;
-    const double pitch = g_pitch.load(std::memory_order_relaxed) * k;
-    const double roll  = g_roll.load(std::memory_order_relaxed) * k;
+    const cameraunlock::effects::HeadEuler led = cameraunlock::effects::ScaleHeadEuler(
+        { g_yaw.load(std::memory_order_relaxed),
+          g_pitch.load(std::memory_order_relaxed),
+          g_roll.load(std::memory_order_relaxed) },
+        g_multiplier);
+    const double yaw   = led.yaw;
+    const double pitch = led.pitch;
+    const double roll  = led.roll;
 
     // The camera hook's composition, scaled - literally the same function, so
     // the beam and the view cannot end up disagreeing about which way the head

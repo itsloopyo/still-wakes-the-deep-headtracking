@@ -6,6 +6,7 @@
 #include <string>
 
 #include "cameraunlock/data/position_settings.h"
+#include "cameraunlock/effects/head_follow_light.h"
 #include "cameraunlock/math/smoothing_utils.h"
 
 namespace swtd_ht {
@@ -58,8 +59,10 @@ struct Config {
     // view: turning your head puts your eyes off the centre of the screen, so a
     // beam aligned with the view lands short of what you are looking at.
     // 1.0 matches the view exactly, 0.0 leaves the beam where the game aimed it.
+    // The number and the reasoning are the fleet's, not this game's - see
+    // cameraunlock/effects/head_follow_light.h.
     bool torch_follows_head = true;
-    float torch_multiplier = 1.5f;
+    float torch_multiplier = cameraunlock::effects::kDefaultLightMultiplier;
 
     // The torch's glare card is a sibling of the spring arm rather than a child
     // of it, so aiming the arm with the head leaves the glare behind on the

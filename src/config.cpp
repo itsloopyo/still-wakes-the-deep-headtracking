@@ -24,12 +24,11 @@ constexpr const char* kIniName = "HeadTracking.ini";
 constexpr float kLocalSmoothingFallback = static_cast<float>(cameraunlock::math::kDefaultLocalSmoothing);
 constexpr float kRemoteSmoothingFallback = static_cast<float>(cameraunlock::math::kDefaultRemoteSmoothing);
 
-// The torch multiplier's ceiling is the same 5.0 resident-evil-requiem uses -
-// past that the beam has left the screen on any believable head movement. The
-// FOV bracket is what an offset can usefully be: past +60 the edges of the
-// picture are unusable fisheye, and -30 is about as narrow as a first-person
-// view gets before it is a telescope.
-constexpr float kMultiplierMax = 5.0f;
+// The torch multiplier's ceiling is the fleet's, so every mod refuses the same
+// mistyped number. The FOV bracket is what an offset can usefully be: past +60
+// the edges of the picture are unusable fisheye, and -30 is about as narrow as a
+// first-person view gets before it is a telescope.
+constexpr float kMultiplierMax = cameraunlock::effects::kMaxLightMultiplier;
 constexpr float kFovOffsetMin = -30.0f;
 constexpr float kFovOffsetMax = 60.0f;
 
@@ -154,7 +153,8 @@ void config_load(const std::string& exe_dir, Config& out) {
 
     out.torch_follows_head = ini.ReadBool ("Torch",    "Enabled",          out.torch_follows_head);
     out.torch_multiplier   = read_ranged(ini, "Torch", "Multiplier",
-        out.torch_multiplier, 0.0f, kMultiplierMax, 1.5f);
+        out.torch_multiplier, 0.0f, kMultiplierMax,
+        cameraunlock::effects::kDefaultLightMultiplier);
     out.torch_flare_follows_beam = ini.ReadBool("Torch", "FlareFollowsBeam",
                                                out.torch_flare_follows_beam);
 
