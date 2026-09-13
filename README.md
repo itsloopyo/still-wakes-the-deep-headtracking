@@ -8,6 +8,7 @@ An unofficial head tracking mod for Still Wakes the Deep that moves the view wit
 
 - **Decoupled look and aim** - head tracking moves the view; what you can reach and grab stays on your mouse
 - **6DOF positional tracking** - lean and peek around corners with head position
+- **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 - **Torch follows your head** - the beam lights where you look, not where the mouse points
 - **A field-of-view setting** - the game ships without one; the mod adds it
 
@@ -18,6 +19,13 @@ An unofficial head tracking mod for Still Wakes the Deep that moves the view wit
 - Windows 10 or 11, 64-bit.
 
 ## Installation
+
+### Lopari
+
+Download [Lopari](https://lopari.app), choose **Still Wakes the Deep**, and click
+**Play with head tracking**.
+
+### Standalone Installer
 
 1. Download `StillWakesTheDeepHeadTracking-v<version>-installer.zip` from the [Releases](../../releases) page.
 2. Extract it anywhere.
