@@ -23,6 +23,10 @@ set "ASI_LOADER_NAME=winmm.dll"
 :: the unconditional copy and resets every key on every update.
 set "MOD_SEED_FILES="
 set "MOD_CONTROLS=Controls: End = toggle, PageUp = position toggle (chords: Ctrl+Shift+Y/G)."
+:: Not used by this mod. Set blank so a value another mod's wrapper left in
+:: the same console does not reach the body.
+set "ASI_SUBDIR="
+set "ASI_LOADER_VERSION="
 :: --- END CONFIG BLOCK ---
 
 :: Pin delayed expansion off before `%*` is expanded on the `call` below.
