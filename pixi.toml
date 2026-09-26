@@ -21,7 +21,9 @@ setup = { cmd = """
 build = { cmd = "cmake --build build --config Release", depends-on = ["setup"] }
 build-debug = { cmd = "cmake --build build --config Debug", depends-on = ["setup"] }
 
-# Behaviour locks for the camera boundary, the caller gate and the INI contract.
+# Behaviour locks for the camera boundary and the caller gate, the config
+# tests, and the config differential test, which holds the frozen
+# HeadTracking.ini reader to v0.2.0's. Needs no game install.
 test = { cmd = "ctest --test-dir build -C Release --output-on-failure", depends-on = ["build"] }
 
 clean = { cmd = """
@@ -37,8 +39,9 @@ clean-all = { cmd = """
 # under vendor/.
 update-deps = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-deps.ps1" }
 
-# Package both release ZIPs (installer + nexus)
-package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build"] }
+# Package both release ZIPs (installer + nexus). Depends on test, so no ZIP is
+# built from a tree whose behaviour locks or config differential test fail.
+package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["test"] }
 
 # Full release workflow: stamp version, changelog, package, commit, tag, push.
 # Unattended - `pixi run release minor` is the authorization, there is no prompt.
@@ -61,4 +64,7 @@ install = { depends-on = ["deploy"] }
 uninstall = "cmd /c scripts\\uninstall.cmd"
 
 [dependencies]
-# No pixi-managed deps - relies on system CMake + Visual Studio 2022.
+# CMake and Visual Studio come from the system. Packaging runs core's config
+# descriptor check (Copy-SharedBundle) with node. Pinned to the release core's
+# own lock resolves.
+nodejs = "==26.5.0"

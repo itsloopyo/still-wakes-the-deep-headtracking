@@ -58,6 +58,7 @@ set(MOD_SOURCES
     src/widget_probe.cpp
     src/ue_vm.cpp
     src/config.cpp
+    src/legacy_config/legacy_config.cpp
     src/builds/build_registry.cpp
     src/builds/steam_offsets.cpp
 )
@@ -113,6 +114,7 @@ if(SWTD_BUILD_TESTS)
     add_executable(swtd_config_tests
         tests/config_tests.cpp
         src/config.cpp
+        src/legacy_config/legacy_config.cpp
     )
     target_include_directories(swtd_config_tests PRIVATE
         src
@@ -120,4 +122,60 @@ if(SWTD_BUILD_TESTS)
     )
     target_link_libraries(swtd_config_tests PRIVATE cameraunlock)
     add_test(NAME swtd_config_tests COMMAND swtd_config_tests)
+
+    # The canonical config conversion's differential test: v0.2.0's reader
+    # (byte copies in tests/config_differential/oracle/src) and startup code
+    # against the frozen reader in src/legacy_config/.
+    set(SWTD_DIFFERENTIAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/config_differential)
+    add_executable(swtd_config_differential
+        ${SWTD_DIFFERENTIAL_DIR}/differential_tests.cpp
+        ${SWTD_DIFFERENTIAL_DIR}/oracle/oracle_reader.cpp
+        src/legacy_config/legacy_config.cpp
+    )
+    target_include_directories(swtd_config_differential PRIVATE
+        src
+        ${SWTD_DIFFERENTIAL_DIR}
+        cameraunlock-core/cpp/include
+    )
+    target_compile_definitions(swtd_config_differential PRIVATE
+        SWTD_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+    target_link_libraries(swtd_config_differential PRIVATE cameraunlock)
+    if(MSVC)
+        target_compile_options(swtd_config_differential PRIVATE /EHsc)
+    endif()
+    add_test(NAME swtd_config_differential COMMAND swtd_config_differential)
+
+    # What the differential test compiles is pinned by hash, line endings aside:
+    # the oracle's byte copies must stay v0.2.0's (git show v0.2.0:src/<file>),
+    # the core sources both readers compile must stay the ones v0.2.0 was built
+    # with (core 0f7a634), and the frozen reader is never edited.
+    function(swtd_require_hash path expected)
+        file(READ "${path}" text)
+        string(REPLACE "\r" "" text "${text}")
+        string(SHA256 actual "${text}")
+        if(NOT actual STREQUAL expected)
+            message(FATAL_ERROR "${path} has changed (SHA-256 of its text ${actual}, pinned "
+                                "${expected}). The config differential test compares against "
+                                "exactly this file; see CMakeLists.txt.")
+        endif()
+    endfunction()
+    set(SWTD_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cameraunlock-core/cpp)
+    foreach(pinned
+            "${SWTD_DIFFERENTIAL_DIR}/oracle/src/config.cpp|6af8240a144b4cce2600114cfcb56e6fbc635529cd98254f4d04a4f5b17538f5"
+            "${SWTD_DIFFERENTIAL_DIR}/oracle/src/config.h|a9d031404653d5b0626537a6822b2da76f760bc6ae7aa997d0a3f22e0ce3871e"
+            "${SWTD_DIFFERENTIAL_DIR}/oracle/src/logging.h|9a547e7980620b35f634cfa7b446630ca65811dd00b9c2e2fc34daf8d5dbb1f4"
+            "${SWTD_CORE_DIR}/include/cameraunlock/config/ini_reader.h|a7ffb44210ff59672fa97e8e5feaa2cb3e81938fcc0334a384c68bc371b3857a"
+            "${SWTD_CORE_DIR}/src/config/ini_reader.cpp|e01515c2656aaf533bae4350dc45b702c3e3d4043935743dcc9bd5ea581fbe1c"
+            "${SWTD_CORE_DIR}/include/cameraunlock/protocol/port_utils.h|91bff564d5e279b66527ec5553afcf4d591812dab0e78f71a48ef412e4db7a44"
+            "${SWTD_CORE_DIR}/include/cameraunlock/logging/file_log.h|43bdd2ef8554c78e5f440333463750c13b95110fe672b0b6e273244df9e7d169"
+            "${SWTD_CORE_DIR}/src/logging/file_log.cpp|73c53c2baa06bbfebe8211f62678aa2b60cb95f604743d3686951ba56b87ea47"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/legacy_config/legacy_config.h|cc74b719255ccfee7e398913730b9f23b3548bcbd94871ffad0e15705a78c28c"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/legacy_config/legacy_config.cpp|02e580a63152e6c03d0eed95796acbdbb32c342aaecf65f65d2247bd026a5c20")
+        string(REPLACE "|" ";" pair "${pinned}")
+        list(GET pair 0 pinned_path)
+        list(GET pair 1 pinned_hash)
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${pinned_path}")
+        swtd_require_hash("${pinned_path}" "${pinned_hash}")
+    endforeach()
 endif()

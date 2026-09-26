@@ -1,0 +1,26 @@
+# What the differential test compares, and where each file came from.
+# Columns: role, source (commit:path, or the path in this repo), sha256 of the bytes.
+# v0.2.0 (commit a18bd1a, tag object 8879377) is the newest published build. The rolling dev
+# pre-release (93cb371) and the v0.1.0 tag, which has no GitHub release, hold the same src/ and
+# the same core pin (0f7a634). No predecessor repo shipped this mod. No release ZIP or launcher
+# manifest shipped or seeded a HeadTracking.ini: every player's file is the one
+# config_write_default_if_missing wrote on the first run, edited or not.
+# The reader was frozen at 1304bf6. Since v0.2.0 one commit changed how the file is read:
+# 443fc59, a LimitYDown that gives no number takes LimitY instead of 0.20. Every core source
+# either reader compiles holds the same bytes at 0f7a634 and at the current pin.
+published reader	v0.2.0:src/config.cpp, compiled as tests/config_differential/oracle/src/config.cpp	6af8240a144b4cce2600114cfcb56e6fbc635529cd98254f4d04a4f5b17538f5
+published reader	v0.2.0:src/config.h, compiled as tests/config_differential/oracle/src/config.h	a9d031404653d5b0626537a6822b2da76f760bc6ae7aa997d0a3f22e0ce3871e
+published reader	v0.2.0:src/logging.h, compiled as tests/config_differential/oracle/src/logging.h	9a547e7980620b35f634cfa7b446630ca65811dd00b9c2e2fc34daf8d5dbb1f4
+published startup	v0.2.0:src/headtracking_mod.cpp, transcribed in tests/config_differential/oracle/oracle_reader.cpp	2632f70391dd9657e3335971210c0bf31cf72fa0f876ea07d281bbc4687b5003
+published startup	v0.2.0:src/mod_hotkeys.cpp, transcribed in tests/config_differential/oracle/oracle_reader.cpp	e878a22c7da6d8a3bc910c96dde86038f22616333b791be13a9a70e85c84b8ee
+published startup	v0.2.0:src/view_hook.cpp, transcribed in tests/config_differential/oracle/oracle_reader.cpp	c524fba1c04d2e17c84f3309a60c221d0ff55ec0aa2de136014ce924546fdf53
+published core source	cameraunlock-core 0f7a634:cpp/include/cameraunlock/config/ini_reader.h	a7ffb44210ff59672fa97e8e5feaa2cb3e81938fcc0334a384c68bc371b3857a
+published core source	cameraunlock-core 0f7a634:cpp/src/config/ini_reader.cpp	e01515c2656aaf533bae4350dc45b702c3e3d4043935743dcc9bd5ea581fbe1c
+published core source	cameraunlock-core 0f7a634:cpp/include/cameraunlock/protocol/port_utils.h	91bff564d5e279b66527ec5553afcf4d591812dab0e78f71a48ef412e4db7a44
+published core source	cameraunlock-core 0f7a634:cpp/include/cameraunlock/logging/file_log.h	43bdd2ef8554c78e5f440333463750c13b95110fe672b0b6e273244df9e7d169
+published core source	cameraunlock-core 0f7a634:cpp/src/logging/file_log.cpp	73c53c2baa06bbfebe8211f62678aa2b60cb95f604743d3686951ba56b87ea47
+frozen from	1304bf6:src/config.cpp	4dc0edbe8f26b0f3b1df646d2e6d53be01927af5bc1219e110807b21e58cd51f
+frozen from	1304bf6:src/config.h	5a4ce2787fc3334711896328552df084f164637999413e069197b1e7101f3a89
+frozen reader	src/legacy_config/legacy_config.h	cc74b719255ccfee7e398913730b9f23b3548bcbd94871ffad0e15705a78c28c
+frozen reader	src/legacy_config/legacy_config.cpp	02e580a63152e6c03d0eed95796acbdbb32c342aaecf65f65d2247bd026a5c20
+input	the file v0.2.0's config_write_default_if_missing writes (v0.2.0:src/config.cpp lines 165-237, text mode, so CRLF), tests/config_differential/data/first-run-v0.2.0.ini; the test checks the oracle still writes these bytes	6ee3d437fd880dc3c1a7826d271ae85724200e97dc41e4cadb9d2443b3c86074
