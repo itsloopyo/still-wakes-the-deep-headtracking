@@ -52,7 +52,7 @@ The Nexus ZIP (`StillWakesTheDeepHeadTracking-v<version>-nexus.zip`) carries onl
 1. Copy `vendor\ultimate-asi-loader\dinput8.dll` from the installer ZIP into `<game-root>\Habitat\Binaries\Win64\`, renamed to `winmm.dll`. This is the ASI loader. The game only loads `dinput8.dll` from System32, so the loader has to proxy `winmm.dll`, which the game EXE imports directly.
 2. Copy `StillWakesTheDeepHeadTracking.asi` into that same folder, alongside `StillWakesTheDeep.exe`.
 
-`HeadTracking.ini` is written into that folder on first launch.
+`CameraUnlock.ini`, the mod's settings file, is created in that folder on first launch.
 
 ## Setting Up OpenTrack
 
@@ -117,7 +117,9 @@ view sits off to one side, centre it in the tracker.
 
 ## Controls
 
-Two equivalent binding sets - use whichever your keyboard has:
+Two equivalent binding sets - use whichever your keyboard has. Both are the
+defaults of the key lists in `CameraUnlock.ini` (see Configuration), where each
+action can be given other keys:
 
 | Action | Nav-cluster | Chord |
 |--------|-------------|-------|
@@ -132,78 +134,169 @@ Two equivalent binding sets - use whichever your keyboard has:
 3. Rotational tracking disabled, positional tracking enabled
 4. Back to normal
 
+The tracking mode and the yaw mode are saved to `CameraUnlock.ini` the moment
+you change them, so the game starts in them next time. Toggling tracking with
+`End` lasts for the session only; whether tracking starts on is
+`EnableOnStartup`.
+
 ## Configuration
 
-`HeadTracking.ini` is written next to the game exe in `<game-root>\Habitat\Binaries\Win64\` on first launch. Edit it and restart the game to apply.
+<!-- cameraunlock:config -->
+The mod reads its settings from `Habitat\Binaries\Win64\CameraUnlock.ini` in the game folder, and creates the file when it starts and finds none. Edit it with any text editor.
+
+A setting set to `default` takes its value from `Defaults.ini`, which every head tracking mod that keeps its settings in `CameraUnlock.ini` reads. Head tracking mods that keep their settings in another file do not read it, and neither do earlier versions of this mod. Writing a value in place of `default` changes that setting for this game only. When the mod saves a setting that a hotkey changed in game, it writes the new value in place of `default`, so that setting no longer follows `Defaults.ini` in this game until you set it to `default` again.
+
+`Defaults.ini` is `%AppData%\CameraUnlock\Defaults.ini` on Windows; `$XDG_CONFIG_HOME/CameraUnlock/Defaults.ini` on Linux, or `~/.config/CameraUnlock/Defaults.ini` where `XDG_CONFIG_HOME` is not set, under Wine and Proton too; and `~/Library/Application Support/CameraUnlock/Defaults.ini` on macOS. The mod's log, where it writes one, names the file it read.
+
+When the mod starts and finds no `Defaults.ini`, it creates one holding the built-in values, unless Windows runs the game as a packaged app. The mod never changes `Defaults.ini` after that. Edit it with any text editor.
+
+Earlier versions of the mod kept these settings in `HeadTracking.ini`, in the same folder. The first time this version starts and finds no `CameraUnlock.ini`, it reads your settings from `HeadTracking.ini` and writes them into `CameraUnlock.ini`. It never changes `HeadTracking.ini`, and does not read it again while `CameraUnlock.ini` exists.
+
+A setting that the defaults below set to `default` is written as `default` when the value imported for it equals its default at that start, which is the value `Defaults.ini` gives it, or the built-in value where `Defaults.ini` gives none. It then follows `Defaults.ini`. Every other setting is written with the value imported for it. `RotationEnabled` and `PositionEnabled` are one setting here, the tracking mode, so both are written as `default` or neither is.
+
+Comments, and keys the mod never read, are not carried over. Nor are these, where your old file had them:
+
+- Reticle settings, and a key that toggled the reticle.
+- A sensitivity, scale, deadzone, response curve or axis inversion you changed from its default. Set these in your tracker instead.
+- The setting for a feature that earlier versions shipped switched off while it was untested. It now follows the mod's default.
+
+An older version of the mod reads `HeadTracking.ini` and never reads `CameraUnlock.ini`, so a setting you change after updating is not in `HeadTracking.ini`.
+
+Deleting only `CameraUnlock.ini` makes the next start read `HeadTracking.ini` again. To go back to the defaults, replace everything in `CameraUnlock.ini` with the defaults below. Every setting they set to `default` then follows `Defaults.ini`.
+
+The built-in value of each setting set to `default` below:
+
+- `UdpPort=4242`
+- `EnableOnStartup=true`
+- `WorldSpaceYaw=true`
+- `RotationEnabled=true`
+- `LocalSmoothing=0.0`
+- `RemoteSmoothing=0.15`
+- `PositionEnabled=true`
+- `PositionLimitX=0.3`
+- `PositionLimitY=0.2`
+- `PositionLimitYDown=0.2`
+- `PositionLimitZ=0.4`
+- `PositionLimitZBack=0.1`
+- `ToggleKey=End, Ctrl+Shift+Y`
+- `CycleTrackingModeKey=PageUp, Ctrl+Shift+G`
+- `YawModeKey=PageDown, Ctrl+Shift+H`
+- `LightFollowsHead=true`
+- `LightMultiplier=1.5`
+
+With every setting at its default, the file reads:
 
 ```ini
+; Still Wakes the Deep head tracking settings.
+; Comments start with ; and go on their own line. Text after a value is part of the value.
+; Hotkeys are key names such as End, PageUp or Ctrl+Shift+Y. Separate several with commas; leave empty for none.
+; A setting set to default takes its value from Defaults.ini, which every head tracking mod
+; that keeps its settings in CameraUnlock.ini reads: %AppData%\CameraUnlock\Defaults.ini on
+; Windows, $XDG_CONFIG_HOME/CameraUnlock/Defaults.ini (normally ~/.config/CameraUnlock) on
+; Linux, under Wine and Proton too, and ~/Library/Application Support/CameraUnlock/Defaults.ini
+; on macOS. The log names the file it read. Write a value instead of default to change that
+; setting for this game only.
+
+[CameraUnlock]
+; Written by the mod. Leave this section in place.
+ConfigFormat=1
+
 [Network]
-UdpPort=4242
+; UDP port the mod receives tracker data on (OpenTrack protocol).
+UdpPort=default
 
 [General]
-EnableOnStartup=1
-; Yaw mode: 1 = horizon-locked yaw (default), 0 = camera-local yaw.
-; Page Down (or Ctrl+Shift+H) toggles it in game.
-WorldSpaceYaw=1
+; true: head tracking is on when the game starts. ToggleKey turns it on and off.
+EnableOnStartup=default
+; true: yaw turns around the world's up axis. false: around the camera's own up axis.
+WorldSpaceYaw=default
+; true: turning your head turns the view.
+; Tracking mode at startup, with PositionEnabled. The mode hotkey changes both.
+RotationEnabled=default
 
-[Rotation]
-YawSensitivity=1.0
-PitchSensitivity=1.0
-RollSensitivity=1.0
-InvertYaw=0
-InvertPitch=0
-InvertRoll=0
-; Smoothing 0.0 (responsive) to 1.0 (heavy). Covers rotation and position.
-; The value is picked per connection from the packet source address:
-; LocalSmoothing for a tracker running on this PC (loopback),
-; RemoteSmoothing for a phone or other device on the network.
-LocalSmoothing=0.0
-RemoteSmoothing=0.15
-
-[Camera]
-; Degrees added to the game's field of view. Still Wakes the Deep has no FOV
-; setting of its own, so this is the only way to widen the view. It is an
-; offset rather than a fixed FOV, so the game keeps the FOV changes it makes
-; itself, and cutscenes and menus stay at the framing it chose. Range -30 to
-; +60; 0 leaves the game alone. HeadTracking.log prints the FOV the game
-; renders at on a line starting `fov:`, so you can see what you are adding to.
-FovOffset=0.0
+[Smoothing]
+; Smoothing when the tracker runs on this PC. 0 is the least, 1 the most.
+LocalSmoothing=default
+; Smoothing when the tracker is another device on the network, such as a phone.
+; 0 is the least, 1 the most.
+RemoteSmoothing=default
 
 [Position]
-Enabled=1
-SensitivityX=1.0
-SensitivityY=1.0
-SensitivityZ=1.0
-; Lean limits in metres. Z is asymmetric: more range forward than back.
-LimitX=0.30
-LimitY=0.20
-LimitYDown=0.20
-LimitZ=0.40
-LimitZBack=0.10
-
-[Torch]
-; Point the torch where you are looking rather than where you are aiming.
-; Multiplier scales the head pose the beam is given. The default leads the
-; view, because turning your head puts your eyes off the centre of the screen
-; and a beam matched to the view lands short of what you are looking at.
-; 1.0 moves the beam with the view, 0.0 leaves it where the game aimed it.
-Enabled=1
-Multiplier=1.5
-; The torch's glare card hangs off the torch body rather than the beam, so with
-; the beam on your head the glare gets left behind and reads as pinned to the
-; world. This moves it onto the beam, where it picks up the beam's own sway.
-FlareFollowsBeam=1
+; true: moving your head moves the view.
+; Tracking mode at startup, with RotationEnabled. The mode hotkey changes both.
+PositionEnabled=default
+; How far, in metres, leaning left or right can move the view.
+PositionLimitX=default
+; How far, in metres, raising your head can move the view.
+PositionLimitY=default
+; How far, in metres, lowering your head can move the view.
+PositionLimitYDown=default
+; How far, in metres, leaning forward can move the view.
+PositionLimitZ=default
+; How far, in metres, leaning back can move the view.
+PositionLimitZBack=default
 
 [Hotkeys]
-; Virtual-key code for the yaw-mode toggle. Ctrl+Shift+H does the same job and
-; is not configurable.
-YawModeKey=0x22
+; Turns head tracking on and off.
+ToggleKey=default
+; Changes the tracking mode: rotation and position, rotation only, position only.
+CycleTrackingModeKey=default
+; Switches yaw between the world's up axis and the camera's own (WorldSpaceYaw).
+YawModeKey=default
+
+[Light]
+; true: a light you carry points where you look instead of where you aim.
+LightFollowsHead=default
+; How far the light turns for each degree your head turns.
+; 1 matches the view, 0 keeps the light on your aim.
+LightMultiplier=default
+; true: the torch's glare moves with the beam. The glare hangs off the torch body,
+; so with the beam on your head it would otherwise stay behind, pinned to the world.
+FlareFollowsBeam=true
+
+[Camera]
+; Degrees added to the game's field of view, -30 to 60. 0 leaves it as it is.
+; The game has no field of view setting of its own. Cutscenes and menus keep the
+; game's framing. HeadTracking.log shows the field of view the game draws at on
+; its fov: line.
+FovOffset=0.0
 
 [Dev]
-; Ctrl+Shift+U / Ctrl+Shift+J cycle which view-point caller is head-tracked.
-; Only needed to re-confirm the render caller after a game patch moves it.
-InjectHotkeys=0
+; For development. Steps which of the game's view point callers is given the head
+; pose, to find the render path again after a game patch.
+InjectNextKey=
+; For development. Steps the other way.
+InjectPreviousKey=
+; For development. true: write the game's crosshair and prompt widgets to
+; HeadTracking.log, to find them again after a game patch.
+WidgetDump=false
 ```
+<!-- /cameraunlock:config -->
+
+### Field of view
+
+Still Wakes the Deep has no field of view setting of its own, so `FovOffset`
+under `[Camera]` is the way to widen the view. It is degrees added to the field
+of view the game renders with, from -30 to 60, and 0 leaves the game alone. It
+is an offset rather than a fixed field of view, so the game keeps the changes it
+makes itself, and cutscenes and menus stay at the framing the game chose. Head
+tracking still runs during a cutscene; only the offset stands down.
+`HeadTracking.log` prints the field of view the game renders at on a line
+starting `fov:`, so you can see what you are adding to.
+
+### The torch
+
+`LightFollowsHead` points the torch where you are looking rather than where you
+are aiming. `LightMultiplier` scales the head pose the beam is given. The
+default, 1.5, leads the view, because turning your head puts your eyes off the
+centre of the screen and a beam matched to the view lands short of what you are
+looking at. 1.0 moves the beam with the view, and 0 leaves it where the game
+aimed it.
+
+The torch's glare hangs off the torch body rather than the beam, so with the
+beam on your head the glare would be left behind, pinned to the world.
+`FlareFollowsBeam` moves it onto the beam, where it picks up the beam's own
+sway.
 
 ## Troubleshooting
 
@@ -226,7 +319,7 @@ InjectHotkeys=0
 **Wrong rotation axis**
 
 - If yaw feels wrong when you are looking steeply up or down, press `Page Down` (or `Ctrl+Shift+H`) to switch yaw mode. World-locked, the default, keeps yaw on the horizon; camera-local follows the camera's current up-axis, which leans the picture as you turn.
-- `InvertYaw`, `InvertPitch` and `InvertRoll` in `HeadTracking.ini` flip an axis your tracker sends the other way round.
+- The mod applies the pose as your tracker sends it. If an axis moves the wrong way, invert it in your tracker.
 
 ## Updating
 
@@ -234,7 +327,7 @@ Download the new release and run `install.cmd` again. Your config is preserved.
 
 ## Uninstalling
 
-Run `uninstall.cmd`. This removes the mod DLLs. The ASI loader shim is only removed if the installer put it there. Use `uninstall.cmd /force` to remove it anyway.
+Run `uninstall.cmd`. This removes the mod DLLs. `CameraUnlock.ini`, and a `HeadTracking.ini` an earlier version left, stay in place so a reinstall keeps your settings. The ASI loader shim is only removed if the installer put it there. Use `uninstall.cmd /force` to remove it anyway.
 
 ## Building from Source
 

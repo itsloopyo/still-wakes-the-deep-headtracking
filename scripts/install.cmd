@@ -21,8 +21,12 @@ set "ASI_LOADER_NAME=winmm.dll"
 :: Files copied only when they are not already there, so an upgrade keeps
 :: whatever the user tuned. Listing an .ini in MOD_DLLS instead puts it through
 :: the unconditional copy and resets every key on every update.
+::
+:: Empty: the mod creates CameraUnlock.ini itself at first launch, importing
+:: HeadTracking.ini once where an earlier version left one, so nothing in the
+:: ZIP is a config. A seeded CameraUnlock.ini would stop that import.
 set "MOD_SEED_FILES="
-set "MOD_CONTROLS=Controls: End = toggle, PageUp = position toggle (chords: Ctrl+Shift+Y/G)."
+set "MOD_CONTROLS=Controls:&echo   End or Ctrl+Shift+Y       - Toggle head tracking on/off&echo   Page Up or Ctrl+Shift+G   - Cycle tracking mode&echo   Page Down or Ctrl+Shift+H - Toggle yaw mode (world-locked / camera-local)&echo   The keys are set in CameraUnlock.ini beside the game exe."
 :: Not used by this mod. Set blank so a value another mod's wrapper left in
 :: the same console does not reach the body.
 set "ASI_SUBDIR="

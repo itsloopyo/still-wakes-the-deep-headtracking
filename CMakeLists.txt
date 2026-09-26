@@ -109,8 +109,10 @@ if(SWTD_BUILD_TESTS)
     )
     add_test(NAME swtd_boundary_tests COMMAND swtd_boundary_tests)
 
-    # config.cpp reads through core's IniReader and logs through core's file log,
-    # so this one links cameraunlock. Still no hooks and no game.
+    # The canonical config, the committed file and the toggles' saves. Also the
+    # renderer behind `pixi run render-config` (--render-config <path>). Links
+    # cameraunlock for the config owner and the file log; still no hooks and no
+    # game.
     add_executable(swtd_config_tests
         tests/config_tests.cpp
         src/config.cpp
@@ -121,15 +123,18 @@ if(SWTD_BUILD_TESTS)
         cameraunlock-core/cpp/include
     )
     target_link_libraries(swtd_config_tests PRIVATE cameraunlock)
+    target_compile_definitions(swtd_config_tests PRIVATE SWTD_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     add_test(NAME swtd_config_tests COMMAND swtd_config_tests)
 
     # The canonical config conversion's differential test: v0.2.0's reader
     # (byte copies in tests/config_differential/oracle/src) and startup code
-    # against the frozen reader in src/legacy_config/.
+    # against the frozen reader in src/legacy_config/, and that reader against
+    # the config owner's migration into CameraUnlock.ini.
     set(SWTD_DIFFERENTIAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/config_differential)
     add_executable(swtd_config_differential
         ${SWTD_DIFFERENTIAL_DIR}/differential_tests.cpp
         ${SWTD_DIFFERENTIAL_DIR}/oracle/oracle_reader.cpp
+        src/config.cpp
         src/legacy_config/legacy_config.cpp
     )
     target_include_directories(swtd_config_differential PRIVATE
@@ -145,6 +150,13 @@ if(SWTD_BUILD_TESTS)
         target_compile_options(swtd_config_differential PRIVATE /EHsc)
     endif()
     add_test(NAME swtd_config_differential COMMAND swtd_config_differential)
+
+    # Core's canonical config lint over the committed file and every file the
+    # differential test migrated, which it writes beside itself under migrated\.
+    add_test(NAME swtd_config_lint COMMAND node
+        ${SWTD_DIFFERENTIAL_DIR}/lint-migrated.mjs
+        $<TARGET_FILE_DIR:swtd_config_differential>/migrated)
+    set_tests_properties(swtd_config_lint PROPERTIES DEPENDS swtd_config_differential)
 
     # What the differential test compiles is pinned by hash, line endings aside:
     # the oracle's byte copies must stay v0.2.0's (git show v0.2.0:src/<file>),
