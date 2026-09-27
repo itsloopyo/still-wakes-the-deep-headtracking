@@ -89,6 +89,7 @@ try {
     if (-not $verLine) { throw 'Could not read the project version from CMakeLists.txt' }
     $current = $verLine.Matches[0].Groups[1].Value
     $new = Resolve-ReleaseVersion -Argument $Version -CurrentVersion $current
+    Assert-ReleaseNotBelowCanonicalSince -RepoRoot $root -Version $new
 
     # New-ReleaseTag pushes to `main`, so releasing from any other branch would
     # push commits the branch does not contain. Gate before anything mutates.
