@@ -130,14 +130,38 @@ cfg::ImportResult RunImport(const cfg::LegacyInput& input, Config& out) {
     // End, Page Up and the Ctrl+Shift chords were bound in code; only the yaw
     // key was in the file, and the reader keeps it inside 0x01-0xFE. The
     // inject-mode chords were bound only with [Dev] InjectHotkeys on.
+    // A yaw key on Ctrl, Shift or Alt alone is unbound (N3) and keeps the chord.
     out.toggle_key = FormatKeyBindings({{KeyModifiers::kNone, kVkEnd}, {kChord, kVkY}});
     out.cycle_tracking_mode_key = FormatKeyBindings({{KeyModifiers::kNone, kVkPageUp}, {kChord, kVkG}});
-    out.yaw_mode_key = FormatKeyBindings({{KeyModifiers::kNone, read.yaw_mode_key}, {kChord, kVkH}});
+    const std::string yaw_key = cfg::LegacyVirtualKeyToBindings(read.yaw_mode_key, "Hotkeys", "YawModeKey", dropped);
+    const std::string yaw_chord = FormatKeyBindings({{kChord, kVkH}});
+    out.yaw_mode_key = yaw_key.empty() ? yaw_chord : yaw_key + ", " + yaw_chord;
     out.inject_next_key = read.inject_hotkeys ? FormatKeyBindings({{kChord, kVkU}}) : std::string();
     out.inject_previous_key = read.inject_hotkeys ? FormatKeyBindings({{kChord, kVkJ}}) : std::string();
 
-    return present ? cfg::ImportResult::Imported(std::move(dropped), std::move(pose_shaping))
-                   : cfg::ImportResult::Absent(std::move(dropped), std::move(pose_shaping));
+    // A setting the player never changed from what v0.2.0 shipped follows
+    // Defaults.ini. The toggle and mode hotkeys were bound in code.
+    const legacy::Config shipped;
+    cfg::LegacyFollowsDefaultsIni follows;
+    follows.Setting(Concept::UdpPort, read.udp_port, shipped.udp_port);
+    follows.Setting(Concept::EnableOnStartup, read.enable_on_startup, shipped.enable_on_startup);
+    follows.Setting(Concept::WorldSpaceYaw, read.world_space_yaw, shipped.world_space_yaw);
+    follows.TrackingMode(read.position_enabled, shipped.position_enabled);
+    follows.Setting(Concept::LocalSmoothing, read.local_smoothing, shipped.local_smoothing);
+    follows.Setting(Concept::RemoteSmoothing, read.remote_smoothing, shipped.remote_smoothing);
+    follows.Setting(Concept::PositionLimitX, read.limit_x, shipped.limit_x);
+    follows.Setting(Concept::PositionLimitY, read.limit_y, shipped.limit_y);
+    follows.Setting(Concept::PositionLimitYDown, read.limit_y_down, shipped.limit_y_down);
+    follows.Setting(Concept::PositionLimitZ, read.limit_z, shipped.limit_z);
+    follows.Setting(Concept::PositionLimitZBack, read.limit_z_back, shipped.limit_z_back);
+    follows.NotInLegacy(Concept::ToggleKey);
+    follows.NotInLegacy(Concept::CycleTrackingModeKey);
+    follows.Setting(Concept::YawModeKey, read.yaw_mode_key, shipped.yaw_mode_key);
+    follows.Setting(Concept::LightFollowsHead, read.torch_follows_head, shipped.torch_follows_head);
+    follows.Setting(Concept::LightMultiplier, read.torch_multiplier, shipped.torch_multiplier);
+
+    return present ? cfg::ImportResult::Imported(std::move(dropped), std::move(pose_shaping), follows.Concepts())
+                   : cfg::ImportResult::Absent(std::move(dropped), std::move(pose_shaping), follows.Concepts());
 }
 
 }  // namespace
