@@ -165,7 +165,6 @@ The built-in value of each setting set to `default` below:
 - `ToggleKey=End, Ctrl+Shift+Y`
 - `CycleTrackingModeKey=PageUp, Ctrl+Shift+G`
 - `YawModeKey=PageDown, Ctrl+Shift+H`
-- `LightFollowsHead=true`
 - `LightMultiplier=1.5`
 
 With every setting at its default, the file reads:
@@ -229,8 +228,6 @@ CycleTrackingModeKey=default
 YawModeKey=default
 
 [Light]
-; true: a light you carry points where you look instead of where you aim.
-LightFollowsHead=default
 ; How far the light turns for each degree your head turns.
 ; 1 matches the view, 0 keeps the light on your aim.
 LightMultiplier=default
@@ -270,8 +267,8 @@ starting `fov:`, so you can see what you are adding to.
 
 ### The torch
 
-`LightFollowsHead` points the torch where you are looking rather than where you
-are aiming. `LightMultiplier` scales the head pose the beam is given. The
+The torch points where you are looking rather than where you are aiming.
+`LightMultiplier` scales the head pose the beam is given. The
 default, 1.5, leads the view, because turning your head puts your eyes off the
 centre of the screen and a beam matched to the view lands short of what you are
 looking at. 1.0 moves the beam with the view, and 0 leaves it where the game

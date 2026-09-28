@@ -140,7 +140,7 @@ void TheCommittedFileFollowsDefaultsIni() {
           "LocalSmoothing=default", "RemoteSmoothing=default", "PositionEnabled=default",
           "PositionLimitX=default", "PositionLimitY=default", "PositionLimitYDown=default", "PositionLimitZ=default",
           "PositionLimitZBack=default", "ToggleKey=default", "CycleTrackingModeKey=default", "YawModeKey=default",
-          "LightFollowsHead=default", "LightMultiplier=default", "FlareFollowsBeam=true", "FovOffset=0.0",
+          "LightMultiplier=default", "FlareFollowsBeam=true", "FovOffset=0.0",
           "InjectNextKey=", "InjectPreviousKey=", "WidgetDump=false"}) {
         Check(Holds(committed, line), std::string("the committed file holds ") + line);
     }
@@ -163,7 +163,7 @@ void FirstLaunchCreatesTheCommittedFile() {
     Check(loaded.enable_on_startup && loaded.world_space_yaw, "tracking starts on, in world-space yaw");
     Check(swtd_ht::config::StartupTrackingMode(loaded) == TrackingMode::RotationAndPosition,
           "tracking starts in rotation and position");
-    Check(loaded.light_follows_head && loaded.light_multiplier == 1.5f && loaded.flare_follows_beam,
+    Check(loaded.light_multiplier == 1.5f && loaded.flare_follows_beam,
           "the torch and its glare follow the head at 1.5");
     Check(loaded.fov_offset == 0.0f, "the field of view is the game's own");
 }

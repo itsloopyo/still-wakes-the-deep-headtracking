@@ -56,7 +56,6 @@ struct Config {
     // 1.0 matches the view exactly, 0.0 leaves the beam where the game aimed it.
     // The number and the reasoning are the fleet's, not this game's - see
     // cameraunlock/effects/head_follow_light.h.
-    bool light_follows_head = true;
     float light_multiplier = cameraunlock::effects::kDefaultLightMultiplier;
 
     // The torch's glare card is a sibling of the spring arm rather than a child

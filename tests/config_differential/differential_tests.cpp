@@ -488,7 +488,9 @@ Record ObserveCanonical(const swtd_ht::Config& c) {
     g.limit_y_down = c.position_limit_y_down;
     g.limit_z = c.position_limit_z;
     g.limit_z_back = c.position_limit_z_back;
-    g.torch_follows_head = c.light_follows_head;
+    // The beam always follows the head now, and the multiplier carries how far: a file that
+    // said [Torch] Enabled=false arrives here as Multiplier=0, which turns it by nothing.
+    g.torch_follows_head = true;
     g.torch_multiplier = c.light_multiplier;
     g.torch_flare_follows_beam = c.flare_follows_beam;
     g.widget_dump = c.widget_dump;
@@ -557,6 +559,15 @@ Allowed ApplyApprovedChanges(const legacy::Config& read) {
     limit(c.limit_y_down, defaults.position_limit_y_down, "LimitYDown");
     limit(c.limit_z, defaults.position_limit_z, "LimitZ");
     limit(c.limit_z_back, defaults.position_limit_z_back, "LimitZBack");
+
+    // [Torch] Enabled is retired, and its value MOVES rather than being dropped: turning it
+    // off pinned the beam to the game's own aim, which the one remaining row says exactly as
+    // Multiplier=0. So the player's choice survives, under the key that now carries it, and
+    // the session runs on a beam that does not move - which is what they asked for.
+    if (!c.torch_follows_head) {
+        c.torch_follows_head = true;
+        c.torch_multiplier = 0.0f;
+    }
 
     std::sort(a.dropped.begin(), a.dropped.end());
     a.observed = ObserveImport(c);
@@ -635,7 +646,7 @@ const char* const kSkewedDefaults =
     "[Position]\r\nPositionEnabled=true\r\nPositionLimitX=0.5\r\nPositionLimitY=0.5\r\nPositionLimitYDown=0.5\r\n"
     "PositionLimitZ=0.5\r\nPositionLimitZBack=0.5\r\n\r\n"
     "[Hotkeys]\r\nToggleKey=F8\r\nCycleTrackingModeKey=F9\r\nYawModeKey=F10\r\n\r\n"
-    "[Light]\r\nLightFollowsHead=false\r\nLightMultiplier=0.5\r\n";
+    "[Light]\r\nLightMultiplier=0.5\r\n";
 
 using cfg::schema::Concept;
 
@@ -647,7 +658,7 @@ const std::set<Concept>& GlobalRows() {
         Concept::RemoteSmoothing,  Concept::PositionLimitX,     Concept::PositionLimitY,
         Concept::PositionLimitYDown, Concept::PositionLimitZ,   Concept::PositionLimitZBack,
         Concept::ToggleKey,        Concept::CycleTrackingModeKey, Concept::YawModeKey,
-        Concept::LightFollowsHead, Concept::LightMultiplier,
+        Concept::LightMultiplier,
     };
     return rows;
 }
@@ -673,8 +684,9 @@ std::set<Concept> UntouchedRows(const legacy::Config& l) {
     differs(std::isfinite(l.limit_z) && l.limit_z != d.limit_z, {Concept::PositionLimitZ});
     differs(std::isfinite(l.limit_z_back) && l.limit_z_back != d.limit_z_back, {Concept::PositionLimitZBack});
     differs(l.yaw_mode_key != d.yaw_mode_key, {Concept::YawModeKey});
-    differs(l.torch_follows_head != d.torch_follows_head, {Concept::LightFollowsHead});
-    differs(l.torch_multiplier != d.torch_multiplier, {Concept::LightMultiplier});
+    // Both old keys land on the one row, so either one changed is a row the player touched.
+    differs(l.torch_follows_head != d.torch_follows_head || l.torch_multiplier != d.torch_multiplier,
+            {Concept::LightMultiplier});
     std::set<Concept> untouched;
     for (const Concept row : GlobalRows()) {
         if (changed.count(row) == 0) untouched.insert(row);
@@ -708,7 +720,6 @@ void CopyRow(Concept row, const swtd_ht::Config& from, swtd_ht::Config& to) {
         case Concept::ToggleKey: to.toggle_key = from.toggle_key; break;
         case Concept::CycleTrackingModeKey: to.cycle_tracking_mode_key = from.cycle_tracking_mode_key; break;
         case Concept::YawModeKey: to.yaw_mode_key = from.yaw_mode_key; break;
-        case Concept::LightFollowsHead: to.light_follows_head = from.light_follows_head; break;
         case Concept::LightMultiplier: to.light_multiplier = from.light_multiplier; break;
         default: throw std::logic_error("no field for a row the table does not bind");
     }

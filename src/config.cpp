@@ -3,6 +3,7 @@
 
 #include "config.h"
 
+#include <cmath>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -101,8 +102,9 @@ cfg::ImportResult RunImport(const cfg::LegacyInput& input, Config& out) {
     out.local_smoothing = read.local_smoothing;
     out.remote_smoothing = read.remote_smoothing;
     out.fov_offset = read.fov_offset;
-    out.light_follows_head = read.torch_follows_head;
-    out.light_multiplier = read.torch_multiplier;
+    // [Torch] Enabled is retired. Turning it off pinned the beam to the game's own aim,
+    // which LightMultiplier=0 says exactly, so an imported file keeps what its author meant.
+    out.light_multiplier = read.torch_follows_head ? read.torch_multiplier : 0.0f;
     out.flare_follows_beam = read.torch_flare_follows_beam;
     out.widget_dump = read.widget_dump;
 
@@ -164,8 +166,12 @@ cfg::ImportResult RunImport(const cfg::LegacyInput& input, Config& out) {
     follows.NotInLegacy(Concept::ToggleKey);
     follows.NotInLegacy(Concept::CycleTrackingModeKey);
     follows.Setting(Concept::YawModeKey, read.yaw_mode_key, shipped.yaw_mode_key);
-    follows.Setting(Concept::LightFollowsHead, read.torch_follows_head, shipped.torch_follows_head);
-    follows.Setting(Concept::LightMultiplier, read.torch_multiplier, shipped.torch_multiplier);
+    // One row now, and it follows Defaults.ini only when the player left both old keys alone:
+    // [Torch] Enabled=false is a choice, and it lands here as LightMultiplier=0.
+    follows.Setting(Concept::LightMultiplier,
+                    read.torch_follows_head == shipped.torch_follows_head &&
+                        (!std::isfinite(read.torch_multiplier) ||
+                         read.torch_multiplier == shipped.torch_multiplier));
 
     return present ? cfg::ImportResult::Imported(std::move(dropped), std::move(pose_shaping), follows.Concepts())
                    : cfg::ImportResult::Absent(std::move(dropped), std::move(pose_shaping), follows.Concepts());
@@ -193,7 +199,6 @@ cfg::ConfigTable<Config> Table() {
         .Concept<Concept::ToggleKey>(&Config::toggle_key)
         .Concept<Concept::CycleTrackingModeKey>(&Config::cycle_tracking_mode_key)
         .Concept<Concept::YawModeKey>(&Config::yaw_mode_key)
-        .Concept<Concept::LightFollowsHead>(&Config::light_follows_head)
         .Concept<Concept::LightMultiplier>(&Config::light_multiplier)
         .Local("Light", "FlareFollowsBeam", &Config::flare_follows_beam, cfg::BoolCodec(),
                "true: the torch's glare moves with the beam. The glare hangs off the torch body,\n"

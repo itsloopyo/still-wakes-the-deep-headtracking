@@ -161,10 +161,9 @@ DWORD WINAPI BootstrapThread(LPVOID) {
     if (!view_hook::Install({&g_config, g_session.get(), g_receiver.get()}))
         return 0;
 
-    if (g_config.light_follows_head)
-        TorchAim::Install(g_config.light_multiplier);
-    else
-        Log::Line("torch: [Light] LightFollowsHead=false - the beam stays on the game's own aim");
+    // Always installed: at LightMultiplier=0 the turn is identity, so the beam sits on the
+    // game's own aim without a second switch deciding whether the hook exists at all.
+    TorchAim::Install(g_config.light_multiplier);
 
     hotkeys::Register(g_config, *g_session);
     Log::Line("init complete. Yaw mode %s. Waiting for OpenTrack on UDP %d.",

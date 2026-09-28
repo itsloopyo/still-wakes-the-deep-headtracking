@@ -11,6 +11,7 @@
 
 ### Changed
 
+- `LightFollowsHead` is gone. The torch always follows your head, and `LightMultiplier=0` leaves the beam where the game aimed it, which is what turning the switch off did. An old `HeadTracking.ini` holding `[Torch] Enabled=false` imports as `LightMultiplier=0`, so the beam still stays on your aim. A `CameraUnlock.ini` that holds the old key is logged and ignored.
 - Settings move to `Habitat\Binaries\Win64\CameraUnlock.ini`. Earlier versions of the mod kept these settings in `HeadTracking.ini`, in the same folder. The first time this version starts and finds no `CameraUnlock.ini`, it reads your settings from `HeadTracking.ini` and writes them into `CameraUnlock.ini`. It never changes `HeadTracking.ini`, and does not read it again while `CameraUnlock.ini` exists.
 - A setting that the defaults the README shows set to `default` is written as `default` when you never changed it from the default of the earlier version that wrote `HeadTracking.ini`, as far as the file shows which version that was, because `HeadTracking.ini` does not hold it or holds that default. It then follows `Defaults.ini`, so it takes the value `Defaults.ini` gives it, or the built-in value where `Defaults.ini` gives none, which can differ from the default earlier versions used. A setting you changed is written with the value imported for it, or as `default` where that value equals its default at that start.
 - `RotationEnabled` and `PositionEnabled` are one setting here, the tracking mode, so both are written as `default` or neither is.

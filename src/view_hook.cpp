@@ -386,7 +386,7 @@ void __fastcall GetPlayerViewPoint_Hook(void* self, FVector* outLocation, FRotat
     // rather than on tracking being enabled - and it self-heals after a level
     // change, which is why it is called every frame rather than once. The pass
     // time-gates itself down to one object-table walk every 15 seconds.
-    if (config.light_follows_head && config.flare_follows_beam && inGameplay)
+    if (config.flare_follows_beam && inGameplay)
         TorchFlare::Tick();
 
     // Suppression tracked across calls so the reticle can be put back exactly
