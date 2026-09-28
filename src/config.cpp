@@ -115,17 +115,22 @@ cfg::ImportResult RunImport(const cfg::LegacyInput& input, Config& out) {
     out.position_enabled = channels.position_enabled;
 
     // The reader holds the limits to no range, so one that is not a number takes
-    // the row's default (N2). A finite one outside the canonical 0 to 10 has no
-    // rule, and the owner defers that file.
+    // the row's default (N2), and a finite one outside the rows' 0 to 10 the
+    // nearest end of it (N4).
     const Config defaults = Table().defaults();
-    const auto limit = [&](float value, float row_default, const char* key) {
+    const auto finite = [&](float value, float row_default, const char* key) {
         return cfg::LegacyFiniteOrDefault(value, row_default, "Position", key, dropped);
     };
-    out.position_limit_x = limit(read.limit_x, defaults.position_limit_x, "LimitX");
-    out.position_limit_y = limit(read.limit_y, defaults.position_limit_y, "LimitY");
-    out.position_limit_y_down = limit(read.limit_y_down, defaults.position_limit_y_down, "LimitYDown");
-    out.position_limit_z = limit(read.limit_z, defaults.position_limit_z, "LimitZ");
-    out.position_limit_z_back = limit(read.limit_z_back, defaults.position_limit_z_back, "LimitZBack");
+    out.position_limit_x = cfg::LegacyClampToRange<Concept::PositionLimitX>(
+        finite(read.limit_x, defaults.position_limit_x, "LimitX"), "Position", "LimitX", dropped);
+    out.position_limit_y = cfg::LegacyClampToRange<Concept::PositionLimitY>(
+        finite(read.limit_y, defaults.position_limit_y, "LimitY"), "Position", "LimitY", dropped);
+    out.position_limit_y_down = cfg::LegacyClampToRange<Concept::PositionLimitYDown>(
+        finite(read.limit_y_down, defaults.position_limit_y_down, "LimitYDown"), "Position", "LimitYDown", dropped);
+    out.position_limit_z = cfg::LegacyClampToRange<Concept::PositionLimitZ>(
+        finite(read.limit_z, defaults.position_limit_z, "LimitZ"), "Position", "LimitZ", dropped);
+    out.position_limit_z_back = cfg::LegacyClampToRange<Concept::PositionLimitZBack>(
+        finite(read.limit_z_back, defaults.position_limit_z_back, "LimitZBack"), "Position", "LimitZBack", dropped);
 
     // End, Page Up and the Ctrl+Shift chords were bound in code; only the yaw
     // key was in the file, and the reader keeps it inside 0x01-0xFE. The
@@ -140,7 +145,9 @@ cfg::ImportResult RunImport(const cfg::LegacyInput& input, Config& out) {
     out.inject_previous_key = read.inject_hotkeys ? FormatKeyBindings({{kChord, kVkJ}}) : std::string();
 
     // A setting the player never changed from what v0.2.0 shipped follows
-    // Defaults.ini. The toggle and mode hotkeys were bound in code.
+    // Defaults.ini. The toggle and mode hotkeys were bound in code. Each limit
+    // is compared as read: one that is not a number is no player's choice and
+    // follows Defaults.ini (N2), and one N4 clamped is the player's.
     const legacy::Config shipped;
     cfg::LegacyFollowsDefaultsIni follows;
     follows.Setting(Concept::UdpPort, read.udp_port, shipped.udp_port);
