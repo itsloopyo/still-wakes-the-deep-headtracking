@@ -157,6 +157,7 @@ if(SWTD_BUILD_TESTS)
         ${SWTD_DIFFERENTIAL_DIR}/lint-migrated.mjs
         $<TARGET_FILE_DIR:swtd_config_differential>/migrated)
     set_tests_properties(swtd_config_lint PROPERTIES DEPENDS swtd_config_differential)
+    set_tests_properties(swtd_config_differential swtd_config_lint PROPERTIES LABELS differential)
 
     # What the differential test compiles is pinned by hash, line endings aside:
     # the oracle's byte copies must stay v0.2.0's (git show v0.2.0:src/<file>),

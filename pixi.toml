@@ -26,7 +26,9 @@ build-debug = { cmd = "cmake --build build --config Debug", depends-on = ["setup
 # reader to v0.2.0's and the migration into CameraUnlock.ini to that reader, and
 # core's canonical config lint over every file that test migrated (run with
 # node). Needs no game install.
-test = { cmd = "ctest --test-dir build -C Release --output-on-failure", depends-on = ["build"] }
+test-unit = { cmd = "ctest --test-dir build -C Release --output-on-failure -LE differential", depends-on = ["build"] }
+test-differential = { cmd = "ctest --test-dir build -C Release --output-on-failure --no-tests=error -L differential", depends-on = ["build"] }
+test = { depends-on = ["test-unit", "test-differential"] }
 
 # Rewrites CameraUnlock.ini, the committed config, from the config table after a
 # change to a row, a comment or a default, then the launcher manifest's config
@@ -46,9 +48,10 @@ clean-all = { cmd = """
 # under vendor/.
 update-deps = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-deps.ps1" }
 
-# Package both release ZIPs (installer + nexus). Depends on test, so no ZIP is
-# built from a tree whose behaviour locks or config differential test fail.
-package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["test"] }
+# Package both release ZIPs (installer + nexus). Depends on test-unit, so no ZIP
+# is built from a tree whose behaviour locks or config tests fail. The config
+# differential runs on the release paths.
+package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["test-unit"] }
 
 # Checks the newest release/*-installer.zip's launcher-manifest.json against the
 # files in the ZIP, and that neither ZIP carries CameraUnlock.ini or

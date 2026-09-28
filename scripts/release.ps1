@@ -82,6 +82,18 @@ try {
     if (-not (Test-CleanGitStatus)) { throw 'Working tree is dirty - commit or stash first.' }
     if (Test-GitTagExists -Tag "v$new") { throw "Tag v$new already exists." }
 
+    Write-Host "Running the full test suite..." -ForegroundColor Cyan
+    Push-Location $root
+    try {
+        pixi run test
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Error: pixi run test failed. Nothing was changed." -ForegroundColor Red
+            exit 1
+        }
+    } finally {
+        Pop-Location
+    }
+
     # Generate CHANGELOG from commits since last tag. This is the gate that
     # aborts when there are no user-facing commits, so run it BEFORE mutating
     # any version files or building - a failure here then leaves a clean tree
