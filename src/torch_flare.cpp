@@ -63,8 +63,8 @@ constexpr const char* kArmName  = "HabitatTorchSpringArmComponent";
 constexpr std::uint8_t kKeepWorld = 1;
 
 // Short interval while the card is not on the arm, long one as a backstop once
-// it is. The backstop is what re-attaches after a level change; the walk is the
-// same shape and cost as the reticle's, a handful of milliseconds.
+// it is. The backstop is what re-attaches after a level change. Each pass is
+// spread across frames (ue_vm::kWalkSlice), so neither lands on one frame.
 constexpr std::uint64_t kRetryMs    = 2000;
 constexpr std::uint64_t kBackstopMs = 15000;
 
@@ -96,46 +96,50 @@ struct Component { std::uintptr_t Obj = 0; std::uintptr_t Torch = 0; };
 // write into the template every later torch is built from.
 struct Pair { std::uintptr_t Card = 0; std::uintptr_t Arm = 0; std::uintptr_t Torch = 0; };
 
-Pair Collect(int& pairCount) {
-    std::vector<Component> cards, arms;
-    const std::size_t nameOff = Offsets().UObjectGlobals.kNamePrivate;
+// The pass in flight and the components it has collected so far.
+ue_vm::SlicedObjectWalk g_walk;
+std::vector<Component> g_cards, g_arms;
 
-    // The two FName comparison ids, learned by the walks that resolve them, so
-    // later walks compare integers instead of building a string for every one of
-    // ~180k objects. BOTH have to be known before the integer path can be taken:
-    // with only one learned it would reject every object that is not that one
-    // name, and the other name could then never be resolved at all.
-    static std::uint32_t s_cardId = 0, s_armId = 0;
+// The two FName comparison ids, learned by the passes that resolve them, so
+// later passes compare integers instead of building a string for every one of
+// ~190k objects. BOTH have to be known before the integer path can be taken:
+// with only one learned it would reject every object that is not that one
+// name, and the other name could then never be resolved at all.
+std::uint32_t g_cardId = 0, g_armId = 0;
 
-    ue::ForEachUObject([&](std::uintptr_t obj) -> bool {
-        std::uint32_t id = 0;
-        if (!ue::SafeReadU32(obj + nameOff, id)) return false;
+void Visit(std::uintptr_t obj) {
+    std::uint32_t id = 0;
+    if (!ue::SafeReadU32(obj + Offsets().UObjectGlobals.kNamePrivate, id)) return;
 
-        bool isCard = false, isArm = false;
-        if (s_cardId != 0 && s_armId != 0) {
-            isCard = (id == s_cardId);
-            isArm  = (id == s_armId);
-            if (!isCard && !isArm) return false;
-        } else {
-            const std::string name = ue::ResolveFName(id);
-            if (name == kCardName) { isCard = true; s_cardId = id; }
-            else if (name == kArmName) { isArm = true; s_armId = id; }
-            else return false;
-        }
+    bool isCard = false, isArm = false;
+    if (g_cardId != 0 && g_armId != 0) {
+        isCard = (id == g_cardId);
+        isArm  = (id == g_armId);
+        if (!isCard && !isArm) return;
+    } else {
+        const std::string name = ue::ResolveFName(id);
+        if (name == kCardName) { isCard = true; g_cardId = id; }
+        else if (name == kArmName) { isArm = true; g_armId = id; }
+        else return;
+    }
 
-        const std::uintptr_t outer = OuterOf(obj);
-        if (!outer) return false;
-        if (ue::ContainsCI(ue::ObjectName(outer), "Default__")) return false;
+    const std::uintptr_t outer = OuterOf(obj);
+    if (!outer) return;
+    if (ue::ContainsCI(ue::ObjectName(outer), "Default__")) return;
 
-        (isCard ? cards : arms).push_back({obj, outer});
-        return false;
-    });
+    (isCard ? g_cards : g_arms).push_back({obj, outer});
+}
 
+// A pass spans frames, so a torch destroyed part way through can still be in
+// what it collected. Only components still registered are paired: attaching to
+// a freed one is a script-VM dispatch into whatever now owns the memory.
+Pair PairUp(int& pairCount) {
     Pair first;
     pairCount = 0;
-    for (const Component& c : cards) {
-        for (const Component& a : arms) {
-            if (c.Torch != a.Torch) continue;
+    for (const Component& c : g_cards) {
+        if (!ue_vm::IsRegistered(c.Obj)) continue;
+        for (const Component& a : g_arms) {
+            if (c.Torch != a.Torch || !ue_vm::IsRegistered(a.Obj)) continue;
             if (pairCount++ == 0) first = {c.Obj, a.Obj, c.Torch};
             break;
         }
@@ -214,13 +218,18 @@ void Tick() {
     if (!ue_vm::Ready()) return;
 
     // Once the card is on the arm nothing needs doing, so the steady state is
-    // one table walk every kBackstopMs.
+    // one pass every kBackstopMs.
     static std::uint64_t s_next = 0;
-    const std::uint64_t now = GetTickCount64();
-    if (now < s_next) return;
+    if (!g_walk.InProgress()) {
+        if (GetTickCount64() < s_next) return;
+        g_cards.clear();
+        g_arms.clear();
+    }
+    if (!g_walk.Step(ue_vm::kWalkSlice, Visit)) return;
 
+    const std::uint64_t now = GetTickCount64();
     int pairCount = 0;
-    const Pair p = Collect(pairCount);
+    const Pair p = PairUp(pairCount);
 
     if (!p.Card || !p.Arm) {
         s_next = now + kRetryMs;
@@ -241,6 +250,8 @@ void Tick() {
             static_cast<unsigned long long>(p.Card),
             static_cast<unsigned long long>(p.Arm),
             ue::ObjectName(p.Torch).c_str(), pairCount);
+        Log::Line("torch-flare: walk=%.1fms over %d frames", g_walk.LastPassMs(),
+            g_walk.LastPassSlices());
         g_lastCard = p.Card;
         g_lastArm  = p.Arm;
     }

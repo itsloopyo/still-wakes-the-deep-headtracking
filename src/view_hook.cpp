@@ -33,6 +33,7 @@
 #include "widget_probe.h"
 
 #include "cameraunlock/hooks/hook_manager.h"
+#include "cameraunlock/memory/safe_memory.h"
 #include "cameraunlock/time/frame_clock.h"
 #include "cameraunlock/unreal/ue_math.h"
 #include "cameraunlock/unreal/ue_runtime.h"
@@ -209,13 +210,10 @@ bool InCutscene(std::uintptr_t controller) {
     if (off == 0 || !g_cutsceneGateOk.load(std::memory_order_relaxed))
         return false;
 
-    // Core has no byte-wide guarded read; the second byte this picks up is
-    // still inside the controller (the class is 0x910 bytes) and is discarded.
-    std::uint16_t raw = 0;
-    if (!ue::SafeReadU16(controller + off, raw))
+    std::uint8_t flag = 0;
+    if (!cameraunlock::memory::SafeReadU8(controller + off, flag))
         return false;
 
-    const unsigned flag = raw & 0xffu;
     if (flag > 1) {
         // A UE bool is 0 or 1. Anything else says this object is not the class
         // the offset was derived against, and every later read would be a coin
@@ -226,7 +224,7 @@ bool InCutscene(std::uintptr_t controller) {
                       "the cutscene flag is not where this build profile says it is. "
                       "The FOV offset will stay applied through cutscenes for the rest "
                       "of this session.",
-                      off, flag);
+                      off, static_cast<unsigned>(flag));
         }
         return false;
     }
@@ -384,9 +382,14 @@ void __fastcall GetPlayerViewPoint_Hook(void* self, FVector* outLocation, FRotat
     // Re-parenting the glare card onto the beam's spring arm is a one-off
     // structural change with no pose in it, so it runs on the gameplay gate
     // rather than on tracking being enabled - and it self-heals after a level
-    // change, which is why it is called every frame rather than once. The pass
-    // time-gates itself down to one object-table walk every 15 seconds.
-    if (config.flare_follows_beam && inGameplay)
+    // change, which is why it is called every frame rather than once. Each call
+    // advances an object-table pass by one slice, so it is keyed on the
+    // profile's render caller, which arrives with each rendered frame, and not
+    // on every caller (about a thousand calls a second) or on the dev inject
+    // mode, which can point anywhere.
+    const bool frameCaller =
+        retRva == inject::CallerRva(Offsets().kDefaultInjectMode, Offsets().kKnownCallerRvas);
+    if (config.flare_follows_beam && inGameplay && frameCaller)
         TorchFlare::Tick();
 
     // Suppression tracked across calls so the reticle can be put back exactly

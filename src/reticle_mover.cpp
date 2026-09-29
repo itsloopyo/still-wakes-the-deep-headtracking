@@ -73,13 +73,13 @@ constexpr Target kTargets[] = {
 };
 constexpr std::size_t kNumTargets = sizeof(kTargets) / sizeof(kTargets[0]);
 
-// How often the object table is re-walked to re-find the targets: the short
-// interval once a held widget has failed its liveness test, the long one as a
-// backstop while everything still looks fine. The backstop is what bounds how
-// long the reticle can sit dead at screen centre if a rebuilt HUD ever leaves
-// the widget we hold alive but no longer painted, which no test on the pointer
-// itself can see. A walk costs about 5ms, so 15s of it is not worth measuring;
-// running it every couple of seconds regardless would be.
+// How often a pass over the object table starts, to re-find the targets: the
+// short interval once a held widget has failed its liveness test, the long one
+// as a backstop while everything still looks fine. The backstop is what bounds
+// how long the reticle can sit dead at screen centre if a rebuilt HUD ever
+// leaves the widget we hold alive but no longer painted, which no test on the
+// pointer itself can see. A pass is spread across frames (ue_vm::kWalkSlice),
+// so its cost never lands on one frame.
 constexpr std::uint64_t kRetryWalkMs    = 2000;
 constexpr std::uint64_t kBackstopWalkMs = 15000;
 
@@ -103,16 +103,21 @@ struct Widget { std::uintptr_t Obj = 0; std::uintptr_t Cls = 0; };
 
 Widget g_widgets[kNumTargets];
 
-// FName comparison ids for the target names, learned by the first walk that
-// finds them. ObjectName() ignores the FName number, so comparing the id is
-// the same test as the string compare that learned it, minus a name-pool
-// lookup and a std::string build for every one of ~100k objects - which is
-// what makes re-walking on a timer affordable.
+// The pass in flight and what it has collected so far, committed to g_widgets
+// only when the pass completes.
+ue_vm::SlicedObjectWalk g_walk;
+Widget g_pending[kNumTargets];
+int    g_pendingMatches[kNumTargets] = {};
+
+// FName comparison ids for the target names, learned the first time a pass
+// meets an object carrying the name. The Blueprint template counts, since it
+// shares the name with the live widget, so a pass that has not found the HUD
+// yet still stops resolving names. ObjectName() ignores the FName number, so
+// comparing the id is the same test as the string compare that learned it,
+// minus a name-pool lookup and a std::string build for every one of ~190k
+// objects.
 std::uint32_t g_nameIds[kNumTargets] = {};
 
-// How long the last walk took, reported in the throttled offset line so the
-// cost of running it repeatedly stays visible rather than assumed.
-float g_lastWalkMs = 0.0f;
 std::uintptr_t g_setRenderTranslationFn = 0;
 std::uintptr_t g_getViewportScaleFn = 0;
 std::uintptr_t g_widgetLayoutLibCdo = 0;
@@ -129,43 +134,22 @@ float g_dpiScale = 1.0f;
 constexpr float kMinPlausibleDpiScale = 0.05f;
 constexpr float kMaxPlausibleDpiScale = 20.0f;
 
-// GUObjectArray is the authority on whether an object still exists. Freed
-// UObject memory keeps its old class pointer for as long as the allocator
-// leaves it alone, so a class-pointer test on its own reports a destroyed
-// widget as live indefinitely - the mod then pushes translations into a
-// widget nothing paints, and the log says everything is fine. The array item
-// at the object's own InternalIndex points back at it only while it is
-// registered: destruction nulls that entry, and a reused index points at
-// whatever took the slot.
-bool RegisteredInObjectArray(std::uintptr_t obj) {
-    const auto& g = Offsets().UObjectGlobals;
-    if (g.kChunkNumElems == 0 || g.kFUObjectItemSize == 0) return false;
-    // UObjectBase packs InternalIndex immediately before ClassPrivate.
-    std::uint32_t index = 0;
-    if (!ue::SafeReadU32(obj + g.kClassPrivate - 4, index)) return false;
-
-    const std::uintptr_t objArr = ue::ModuleBase() + g.kObjObjects;
-    std::uintptr_t chunks = 0;
-    std::uint32_t num = 0;
-    if (!ue::SafeReadPtr(objArr, chunks) || !chunks) return false;
-    if (!ue::SafeReadU32(objArr + g.kObjObjects_Num, num) || index >= num) return false;
-
-    std::uintptr_t chunk = 0;
-    if (!ue::SafeReadPtr(chunks + (static_cast<std::uintptr_t>(index / g.kChunkNumElems) * 8),
-                         chunk) || !chunk)
-        return false;
-    std::uintptr_t registered = 0;
-    return ue::SafeReadPtr(chunk + static_cast<std::uintptr_t>(index % g.kChunkNumElems)
-                               * g.kFUObjectItemSize, registered)
-        && registered == obj;
-}
-
 bool Live(const Widget& w) {
     if (!w.Obj || !w.Cls) return false;
     std::uintptr_t cls = 0;
     if (!ue::SafeReadPtr(w.Obj + Offsets().UObjectGlobals.kClassPrivate, cls) || cls != w.Cls)
         return false;
-    return RegisteredInObjectArray(w.Obj);
+    return ue_vm::IsRegistered(w.Obj);
+}
+
+// Liveness of every held widget, tested once per tick. Returns whether all are.
+bool TestLiveness(bool (&live)[kNumTargets]) {
+    bool all = true;
+    for (std::size_t i = 0; i < kNumTargets; ++i) {
+        live[i] = Live(g_widgets[i]);
+        all = all && live[i];
+    }
+    return all;
 }
 
 // How far up the outer chain the target test looks. Four links reach the map
@@ -184,49 +168,37 @@ void ResolveScriptFunctions() {
         g_widgetLayoutLibCdo = ue::FindLiveObject("WidgetLayoutLibrary", "Default__WidgetLayoutLibrary", nullptr);
 }
 
-// One table walk collects every target; doing it per widget would walk 100k
-// objects once each. Only objects the array still holds are visited, so a
-// widget that has been destroyed cannot come back out of this.
-void Collect() {
-    LARGE_INTEGER freq{}, t0{}, t1{};
-    QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&t0);
-
-    Widget found[kNumTargets];
-    int matches[kNumTargets] = {};
-    const std::size_t nameOff = Offsets().UObjectGlobals.kNamePrivate;
-    ue::ForEachUObject([&](std::uintptr_t obj) -> bool {
-        std::uint32_t id = 0;
-        if (!ue::SafeReadU32(obj + nameOff, id)) return false;
-        std::string name;
-        for (std::size_t i = 0; i < kNumTargets; ++i) {
-            if (g_nameIds[i] != 0) {
-                if (id != g_nameIds[i]) continue;
-            } else {
-                if (name.empty()) name = ue::ResolveFName(id);
-                if (name != kTargets[i].Name) continue;
-            }
-            if (!ue::ContainsCI(ue_vm::OuterChain(obj, kOuterChainDepth, "/"),
-                                kTargets[i].Outer)) continue;
-            std::uintptr_t cls = 0;
-            if (ue::SafeReadPtr(obj + Offsets().UObjectGlobals.kClassPrivate, cls) && cls) {
-                found[i] = {obj, cls};
-                g_nameIds[i] = id;
-                ++matches[i];
-            }
-            break;
+// One pass collects every target; a pass per widget would walk the table once
+// each.
+void Visit(std::uintptr_t obj) {
+    std::uint32_t id = 0;
+    if (!ue::SafeReadU32(obj + Offsets().UObjectGlobals.kNamePrivate, id)) return;
+    std::string name;
+    for (std::size_t i = 0; i < kNumTargets; ++i) {
+        if (g_nameIds[i] != 0) {
+            if (id != g_nameIds[i]) continue;
+        } else {
+            if (name.empty()) name = ue::ResolveFName(id);
+            if (name != kTargets[i].Name) continue;
+            g_nameIds[i] = id;
         }
-        return false;
-    });
+        // The target names are distinct, so an object that got this far is
+        // this target or none of them.
+        if (!ue::ContainsCI(ue_vm::OuterChain(obj, kOuterChainDepth, "/"),
+                            kTargets[i].Outer)) return;
+        std::uintptr_t cls = 0;
+        if (ue::SafeReadPtr(obj + Offsets().UObjectGlobals.kClassPrivate, cls) && cls) {
+            g_pending[i] = {obj, cls};
+            ++g_pendingMatches[i];
+        }
+        return;
+    }
+}
 
-    QueryPerformanceCounter(&t1);
-    g_lastWalkMs = freq.QuadPart
-        ? static_cast<float>((t1.QuadPart - t0.QuadPart) * 1000.0 / static_cast<double>(freq.QuadPart))
-        : 0.0f;
-
+void CommitPass() {
     bool changed = false;
     for (std::size_t i = 0; i < kNumTargets; ++i)
-        if (found[i].Obj != g_widgets[i].Obj) changed = true;
+        if (g_pending[i].Obj != g_widgets[i].Obj) changed = true;
 
     ResolveScriptFunctions();
 
@@ -238,21 +210,23 @@ void Collect() {
         for (std::size_t i = 0; i < kNumTargets; ++i) {
             Log::Line("reticle: target %-20s 0x%llx -> 0x%llx  matches=%d%s", kTargets[i].Name,
                 static_cast<unsigned long long>(g_widgets[i].Obj),
-                static_cast<unsigned long long>(found[i].Obj), matches[i],
-                found[i].Obj ? "" : "  (NOT FOUND - stays screen-fixed)");
+                static_cast<unsigned long long>(g_pending[i].Obj), g_pendingMatches[i],
+                g_pending[i].Obj ? "" : "  (NOT FOUND - stays screen-fixed)");
         }
-        Log::Line("reticle: setRenderTranslation=0x%llx dpiScale=%.3f walk=%.1fms",
-            static_cast<unsigned long long>(g_setRenderTranslationFn), g_dpiScale, g_lastWalkMs);
+        Log::Line("reticle: setRenderTranslation=0x%llx dpiScale=%.3f walk=%.1fms over %d frames",
+            static_cast<unsigned long long>(g_setRenderTranslationFn), g_dpiScale,
+            g_walk.LastPassMs(), g_walk.LastPassSlices());
     }
 
-    for (std::size_t i = 0; i < kNumTargets; ++i) g_widgets[i] = found[i];
+    for (std::size_t i = 0; i < kNumTargets; ++i) g_widgets[i] = g_pending[i];
 }
 
 void RefreshDpiScale() {
     if (!g_getViewportScaleFn || !g_widgetLayoutLibCdo) return;
     // GetViewportScale finds the viewport through its world-context object, so
-    // there is nothing to ask while the walk has not found a widget to pass.
-    if (!g_widgets[0].Obj) return;
+    // there is nothing to ask until a pass has found a live widget to pass.
+    // The pass that found it may have started frames ago, hence the test.
+    if (!Live(g_widgets[0])) return;
     struct { void* WorldContext; float Ret; char pad[12]; } p{};
     p.WorldContext = reinterpret_cast<void*>(g_widgets[0].Obj);
     if (!ue_vm::Dispatch(reinterpret_cast<void*>(g_widgetLayoutLibCdo),
@@ -267,8 +241,8 @@ void RefreshDpiScale() {
     }
 }
 
+// The caller has established that `w` is live this tick.
 void Push(Widget& w, double x, double y) {
-    if (!Live(w)) return;
     // UE5 LWC: FVector2D is two doubles. The tail padding covers any trailing
     // parameter the signature carries that we are not setting.
     struct { double X; double Y; char pad[16]; } tr{};
@@ -279,7 +253,7 @@ void Push(Widget& w, double x, double y) {
         return;
 
     // A dispatch that faults means the object stopped being what it was between
-    // the liveness test and the call. Dropping it sends the next walk looking
+    // the liveness test and the call. Dropping it sends the next pass looking
     // for whatever replaced it; swallowing the fault would leave the reticle
     // pinned to a dead object with nothing in the log to say so.
     Log::Line("reticle: SetRenderTranslation faulted on 0x%llx - dropped, re-locating",
@@ -303,21 +277,25 @@ bool VmReady() {
 // is a different object. That is what the liveness test is for, and the short
 // retry interval then re-points within a couple of seconds - it also covers a
 // target that is genuinely absent, since the prompt manager does not exist until
-// the HUD is up. The walk runs on the backstop interval even when every target
+// the HUD is up. A pass starts on the backstop interval even when every target
 // looks fine, because a widget that has been orphaned rather than destroyed
-// reads as perfectly alive. Comparing FName ids rather than resolving ~180k
-// names is what makes repeating the walk affordable; its cost is printed in the
-// offset line, so it can be checked rather than trusted.
-void MaybeRefreshTargets() {
-    bool allLive = true;
-    for (const Widget& w : g_widgets) if (!Live(w)) { allLive = false; break; }
-
-    static std::uint64_t s_lastWalk = 0;
-    const std::uint64_t now = GetTickCount64();
-    if (now - s_lastWalk < (allLive ? kBackstopWalkMs : kRetryWalkMs)) return;
-    s_lastWalk = now;
-    Collect();
+// reads as perfectly alive. Returns whether a pass completed on this call, which
+// replaces the held widgets.
+bool MaybeRefreshTargets(bool allLive) {
+    if (!g_walk.InProgress()) {
+        static std::uint64_t s_lastPass = 0;
+        const std::uint64_t now = GetTickCount64();
+        if (now - s_lastPass < (allLive ? kBackstopWalkMs : kRetryWalkMs)) return false;
+        s_lastPass = now;
+        for (std::size_t i = 0; i < kNumTargets; ++i) {
+            g_pending[i] = Widget{};
+            g_pendingMatches[i] = 0;
+        }
+    }
+    if (!g_walk.Step(ue_vm::kWalkSlice, Visit)) return false;
+    CommitPass();
     RefreshDpiScale();
+    return true;
 }
 
 // The hook fires several times per frame but the offset only changes on the
@@ -340,8 +318,10 @@ void Tick() {
     if (Offsets().UObjectGlobals.kObjObjects == 0) return;
     if (!VmReady()) return;
 
-    MaybeRefreshTargets();
-    if (!g_setRenderTranslationFn || !Live(g_widgets[0])) return;
+    bool live[kNumTargets];
+    const bool allLive = TestLiveness(live);
+    if (MaybeRefreshTargets(allLive)) TestLiveness(live);
+    if (!g_setRenderTranslationFn || !live[0]) return;
 
     float dx = 0.0f, dy = 0.0f;
     const bool haveOffset = AimProjection::GetScreenOffset(dx, dy);
@@ -352,7 +332,8 @@ void Tick() {
     const double slateY = haveOffset ? dy / g_dpiScale : 0.0;
     if (!NeedsPush(slateX, slateY)) return;
 
-    for (Widget& w : g_widgets) Push(w, slateX, slateY);
+    for (std::size_t i = 0; i < kNumTargets; ++i)
+        if (live[i]) Push(g_widgets[i], slateX, slateY);
 
     static std::uint64_t s_lastOffsetLog = 0;
     static int s_offsetLines = 0;
@@ -362,7 +343,7 @@ void Tick() {
     s_lastOffsetLog = now;
     ++s_offsetLines;
     Log::Line("reticle: offset px=(%.1f,%.1f) slate=(%.1f,%.1f) dpi=%.3f valid=%s walk=%.1fms",
-        dx, dy, slateX, slateY, g_dpiScale, haveOffset ? "yes" : "no", g_lastWalkMs);
+        dx, dy, slateX, slateY, g_dpiScale, haveOffset ? "yes" : "no", g_walk.LastPassMs());
 }
 
 }  // namespace swtd_ht::ReticleMover

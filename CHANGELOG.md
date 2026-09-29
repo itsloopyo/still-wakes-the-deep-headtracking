@@ -9,6 +9,10 @@
 - `Defaults.ini` is `%AppData%\CameraUnlock\Defaults.ini` on Windows; `$XDG_CONFIG_HOME/CameraUnlock/Defaults.ini` on Linux, or `~/.config/CameraUnlock/Defaults.ini` where `XDG_CONFIG_HOME` is not set, under Wine and Proton too; and `~/Library/Application Support/CameraUnlock/Defaults.ini` on macOS. The mod's log, where it writes one, names the file it read.
 - When the mod starts and finds no `Defaults.ini`, it creates one holding the built-in values, unless Windows runs the game as a packaged app. The mod never changes `Defaults.ini` after that.
 
+### Fixed
+
+- The mod searches the game's objects every few seconds so the crosshair, the interaction prompt and the torch glare keep working after a level change. Each search used to hold up a single frame, for 3 to 8 ms, or 21 to 35 ms the first time. It is now spread over several frames.
+
 ### Changed
 
 - `LightFollowsHead` is gone. The torch always follows your head, and `LightMultiplier=0` leaves the beam where the game aimed it, which is what turning the switch off did. An old `HeadTracking.ini` holding `[Torch] Enabled=false` imports as `LightMultiplier=0`, so the beam still stays on your aim. A `CameraUnlock.ini` that holds the old key is logged and ignored.
