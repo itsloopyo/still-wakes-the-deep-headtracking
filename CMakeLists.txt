@@ -60,6 +60,9 @@ set(MOD_SOURCES
     src/config.cpp
     src/legacy_config/legacy_config.cpp
     src/builds/build_registry.cpp
+    src/builds/runtime_discovery.cpp
+    src/builds/native_thunk.cpp
+    src/builds/runtime_layout.cpp
     src/builds/steam_offsets.cpp
 )
 
@@ -72,6 +75,7 @@ target_compile_definitions(StillWakesTheDeepHeadTracking PRIVATE
 )
 
 target_include_directories(StillWakesTheDeepHeadTracking PRIVATE
+    ${minhook_src_SOURCE_DIR}/src/hde
     src
     cameraunlock-core/cpp/include
 )
@@ -98,6 +102,14 @@ set_target_properties(StillWakesTheDeepHeadTracking PROPERTIES
 option(SWTD_BUILD_TESTS "Build the camera-boundary behaviour tests" ON)
 if(SWTD_BUILD_TESTS)
     enable_testing()
+    add_executable(swtd_discovery_bounds_tests tests/discovery_bounds_tests.cpp src/builds/runtime_discovery.cpp src/builds/native_thunk.cpp)
+    target_include_directories(swtd_discovery_bounds_tests PRIVATE src cameraunlock-core/cpp/include ${minhook_src_SOURCE_DIR}/src/hde)
+    target_link_libraries(swtd_discovery_bounds_tests PRIVATE minhook)
+    add_test(NAME swtd_discovery_bounds_tests COMMAND swtd_discovery_bounds_tests)
+    add_executable(swtd_native_thunk_tests tests/native_thunk_tests.cpp src/builds/native_thunk.cpp)
+    target_include_directories(swtd_native_thunk_tests PRIVATE src ${minhook_src_SOURCE_DIR}/src/hde)
+    target_link_libraries(swtd_native_thunk_tests PRIVATE minhook)
+    add_test(NAME swtd_native_thunk_tests COMMAND swtd_native_thunk_tests)
 
     add_executable(swtd_boundary_tests
         tests/boundary_tests.cpp

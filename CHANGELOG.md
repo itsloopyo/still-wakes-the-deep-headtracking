@@ -15,6 +15,8 @@
 
 ### Changed
 
+- Camera, torch and menu-state addresses are resolved at startup on compatible game builds, reducing the need for mod updates after game patches.
+
 - `LightFollowsHead` is gone. The torch always follows your head, and `LightMultiplier=0` leaves the beam where the game aimed it, which is what turning the switch off did. An old `HeadTracking.ini` holding `[Torch] Enabled=false` imports as `LightMultiplier=0`, so the beam still stays on your aim. A `CameraUnlock.ini` that holds the old key is logged and ignored.
 - Settings move to `Habitat\Binaries\Win64\CameraUnlock.ini`. Earlier versions of the mod kept these settings in `HeadTracking.ini`, in the same folder. The first time this version starts and finds no `CameraUnlock.ini`, it reads your settings from `HeadTracking.ini` and writes them into `CameraUnlock.ini`. It never changes `HeadTracking.ini`, and does not read it again while `CameraUnlock.ini` exists.
 - A setting that the defaults the README shows set to `default` is written as `default` when you never changed it from the default of the earlier version that wrote `HeadTracking.ini`, as far as the file shows which version that was, because `HeadTracking.ini` does not hold it or holds that default. It then follows `Defaults.ini`, so it takes the value `Defaults.ini` gives it, or the built-in value where `Defaults.ini` gives none, which can differ from the default earlier versions used. A setting you changed is written with the value imported for it, or as `default` where that value equals its default at that start.
@@ -42,6 +44,8 @@
 
 ### Changed
 
+- Camera, torch and menu-state addresses are resolved at startup on compatible game builds, reducing the need for mod updates after game patches.
+
 - Performance and stability improvements
 
 ## [0.1.0] - 2026-08-30
@@ -63,6 +67,8 @@
 - Initial release.
 
 ### Changed
+
+- Camera, torch and menu-state addresses are resolved at startup on compatible game builds, reducing the need for mod updates after game patches.
 
 - Changed the mod to apply the tracker pose as absolute, keeping no centre of its own. Every tracker app centres itself, so a mod-side centre sat in series with the tracker's and the two drifted apart. Centre in your tracker app instead. The recentre hotkey (Home / Ctrl+Shift+T) is gone with it.
 - Capped the per-hook `hook #...` detail line at 20 samples, instead of logging every 2 seconds for the whole session (~400 KB an hour). The 30-second heartbeat still reports liveness, tracker data and inject mode.

@@ -12,6 +12,7 @@
 // simply never observes the delta.
 
 #include "view_hook.h"
+#include "builds/runtime_discovery.h"
 
 #include <atomic>
 #include <cstdint>
@@ -345,11 +346,11 @@ void __fastcall GetPlayerViewPoint_Hook(void* self, FVector* outLocation, FRotat
     const std::uintptr_t retRva = ReturnRva(_ReturnAddress());
     const auto controller = reinterpret_cast<std::uintptr_t>(self);
 
+    g_origGetPlayerViewPoint(self, outLocation, outRotation);
+    if (!builds::ValidateController(controller)) return;
     const bool inGameplay = InGameplay(controller);
     const bool inCutscene = InCutscene(controller);
     LogCutsceneTransition(inCutscene);
-
-    g_origGetPlayerViewPoint(self, outLocation, outRotation);
     const FRotator clean = *outRotation;
 
     const auto call = g_hookCallCount.fetch_add(1, std::memory_order_relaxed) + 1;

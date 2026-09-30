@@ -16,6 +16,10 @@ An unofficial head tracking mod for Still Wakes the Deep that moves the view wit
 - A tracking source that sends the OpenTrack UDP protocol, such as [OpenTrack](https://github.com/opentrack/opentrack) driving a webcam or a VR headset, or a phone app that speaks it directly.
 - Windows 10 or 11, 64-bit.
 
+Compatible camera addresses and layouts are checked at startup. If discovery
+fails on an unrecognised build, tracking stays off and the log records why.
+The existing Steam build profile remains available.
+
 ## Installation
 
 ### Lopari

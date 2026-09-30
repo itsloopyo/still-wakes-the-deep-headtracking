@@ -9,19 +9,6 @@
 #include <cameraunlock/memory/pe_fingerprint.h>
 #include <cameraunlock/unreal/ue_runtime.h>
 
-// One BuildProfile describes a single shipped build of Still Wakes the Deep:
-// the PE-header fingerprint that uniquely identifies it, plus every per-build
-// RVA / field offset the camera hook needs. The registry holds one profile per
-// supported build; at startup the mod fingerprints the live module and selects
-// the matching profile. No match leaves the mod fully dormant (no hooks
-// installed, game runs vanilla) - see AGENTS.md "Maintain compatibility across
-// new patches": never edit an existing profile's RVAs in place, ADD a new one.
-//
-// SWtD is UE 5.4. The lean offset set reflects that this is a narrative
-// walking-sim: no weapons, no crosshair, no helmet overlay, so the mod only
-// needs to inject the head pose into the render-path view and leave every other
-// GetPlayerViewPoint caller clean (the aim/interaction-trace decoupling).
-
 namespace swtd_ht
 {
     // PE-header build fingerprint (TimeDateStamp + SizeOfImage + CheckSum);

@@ -33,6 +33,7 @@
 // resident-evil-requiem's do. 1.0 moves the beam with the view instead.
 
 #include "torch_aim.h"
+#include "builds/runtime_discovery.h"
 
 #include <atomic>
 #include <cstdint>
@@ -77,6 +78,7 @@ std::atomic<std::uint64_t> g_gatedCalls{0};
 FRotator* __fastcall GetTargetRotation_Hook(void* self, FRotator* out) {
     const void* retAddr = _ReturnAddress();
     FRotator* result = g_orig(self, out);
+    if (!builds::RuntimeLayoutReady()) return result;
 
     if (!g_active.load(std::memory_order_relaxed))
         return result;
