@@ -298,9 +298,18 @@ game this mod applies to, which is nominative use and not a claim of any right
 in them. This project is an unofficial, fan-made modification. It is not
 affiliated with, endorsed by, or sponsored by the game's developers, its
 publishers, its engine vendor, or any other rights holder. It redistributes no
-game code, no game assets and no proprietary DLLs, and it requires a
+game code, no extracted game assets and no proprietary DLLs, and it requires a
 legitimately purchased copy of the game. Any engine structure offsets,
 function addresses or byte patterns referenced in the source were derived by
 the authors through independent analysis of a legitimately owned copy. They
 are factual measurements recorded as numbers; no decompiled or disassembled
 game code is stored in this repository.
+
+
+## Still Wakes the Deep footage
+
+- **File:** `assets/readme-clip.gif`.
+- **Attribution:** The Chinese Room and Secret Mode; third-party marks belong to their respective rights holders.
+- **Purpose:** gameplay demonstrating this mod in the README.
+- **Distribution:** stored in this repository; excluded from the release ZIPs.
+- **Licence:** no licence over the footage is granted by this repository's MIT licence. It will be removed on request from a rights holder.
